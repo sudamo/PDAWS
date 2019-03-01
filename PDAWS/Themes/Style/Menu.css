@@ -1,0 +1,233 @@
+﻿body
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	background-color: #ffffff;
+	color: #000000;
+	margin: 0px;
+	SCROLLBAR-FACE-COLOR: #F1F1F1; SCROLLBAR-HIGHLIGHT-COLOR: #808080; SCROLLBAR-SHADOW-COLOR: #808080; SCROLLBAR-3DLIGHT-COLOR: #ffffff; SCROLLBAR-ARROW-COLOR: #808080; SCROLLBAR-TRACK-COLOR: #ffffff; SCROLLBAR-DARKSHADOW-COLOR: #ffffff;
+}
+
+td
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+}
+
+.Menu-Level0_TR
+{
+	background-image: url(../Images/nav_normal.gif);
+}
+.Menu-Level0_TD
+{
+	cursor: default;
+	background-image: url(../Images/nav_normal.gif);
+}
+.Menu-Level0_TD_Hover
+{
+	background-image: url(../Images/nav_hover.gif);
+}
+.Menu-Level0_TD_Choosed
+{
+	background-image: url(../Images/nav_normal.gif);
+}
+.Menu-Level0_TR_Choosed
+{
+	background-image: url(../Images/nav_select.gif);
+}
+
+.Menu-Level1_TR
+{
+}
+.Menu-Level1_TD
+{
+}
+
+.Menu-Level2_TR
+{
+}
+.Menu-Level2_TD
+{
+}
+.Menu-Level2_Span
+{
+	background: #FFFFFF;
+	border: 0px solid #000000;
+	color: #000000;
+}
+
+.Menu-Level2_TR_Hover
+{
+}
+.Menu-Level2_TD_Hover
+{
+}
+.Menu-Level2_Span_Hover
+{
+	background: #CCCCFF;
+	border: 1px solid #000000;
+	color: #FFFFFF;
+}
+
+.Menu-Level2_TR_Choosed
+{
+}
+.Menu-Level2_TD_Choosed
+{
+}
+.Menu-Level2_Span_Choosed
+{
+	background: #6666FF;
+	border: 1px solid #000000;
+	color: #FFFFFF;
+}
+
+.Menu_Toolbar_Item
+{
+	background-color: transparent;
+}
+
+.Menu_Toolbar_Item_Hover
+{
+	background-image: url(../Images/nav_hover.gif);
+}
+
+.Menu_Toolbar_Item_Choosed
+{
+	background-image: url(../Images/nav_select.gif);
+}
+
+.PopMenu {
+	background-image: url(../Images/PopMenu/group_background.gif);
+	border-right: #7e7e81 1px solid; 
+	border-top: #7e7e81 1px solid; 
+	filter: progid:dximagetransform.microsoft.shadow(color='gray', direction=135, strength=2); 
+	border-left: #7e7e81 1px solid; 
+	cursor: default; 
+	border-bottom: #7e7e81 1px solid;
+}
+
+.PopMenu-Container {
+	border: 1px solid #6B8ECE; cursor: default; width: 150px;
+}
+
+.PopMenu-IconColumn {
+	padding-right: 0px; 
+	padding-left: 0px; 
+	padding-bottom: 0px; 
+	padding-top: 0px;
+	width: 20px;
+}
+
+.PopMenu-TextColumn {
+}
+
+.PopMenu-ExtColumn {
+}
+
+.PopMenu-Common {
+	padding-right: 1px; 
+	padding-left: 1px; 
+	padding-bottom: 1px; 
+	padding-top: 1px; 
+	font-family: MS Sans Serif;
+	font-size: 12px; 
+	border: 0px solid #FFFFFF;
+}
+
+.PopMenu-MenuItem {
+	cursor: default; 
+	color: black; 
+	padding-right: 10px; 
+	padding-left: 10px; 
+	padding-bottom: 5px; 
+	padding-top: 5px; 
+	border: 0px solid #FFFFFF;	
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+}
+
+.PopMenu-MenuItemDisable {
+	cursor: default; 
+	color: gray; 
+	padding-right: 10px; 
+	padding-left: 10px; 
+	padding-bottom: 5px; 
+	padding-top: 5px; 
+	border: 0px solid #FFFFFF;	
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+}
+
+.PopMenu-MenuItemOver {
+	border-right: #4b4b6f 1px solid; 
+	padding-right: 9px; 
+	border-top: #4b4b6f 1px solid; 
+	padding-left: 9px; 
+	font-size: 12px; 
+	padding-bottom: 4px; 
+	border-left: #4b4b6f 1px solid; 
+	cursor: default; 
+	color: black; 
+	padding-top: 4px; 
+	border-bottom: #4b4b6f 1px solid; 
+	font-family: MS Sans Serif; 
+	background-color: #fee197;
+}
+
+.PopMenu-MenuBreak {
+	margin-left: 30px;
+	height: 1px;
+	width: 125px;
+	border: 0px solid #FFFFFF;
+}
+
+.PopMenu-TopGroup {
+	border-right: gray 1px solid; 
+	border-top: gray 1px solid; 
+	border-left: gray 1px solid; 
+	cursor: default; 
+	border-bottom: gray 1px solid; 
+	background-color: #d9d9e6;
+}
+.PopMenu-MenuGroup {
+	border-right: #7e7e81 1px solid; 
+	border-top: #7e7e81 1px solid; 
+	filter: progid:dximagetransform.microsoft.shadow(color='gray', direction=135, strength=2); background-image: url(group_background.gif); 
+	border-left: #7e7e81 1px solid; 
+	cursor: default; 
+	border-bottom: #7e7e81 1px solid;
+}
+
+.PopMenu-TopMenuItem {
+	border-right: #d9d9e6 1px solid; 
+	padding-right: 10px; 
+	border-top: #d9d9e6 1px solid; 
+	padding-left: 10px; 
+	font-size: 12px; 
+	padding-bottom: 2px; 
+	border-left: #d9d9e6 1px solid; 
+	cursor: default; 
+	color: black; 
+	padding-top: 2px; 
+	border-bottom: #d9d9e6 1px solid; 
+	font-family: MS Sans Serif; 
+	background-color: #d9d9e6;
+}
+
+.PopMenu-TopMenuItemOver {
+	border-right: #7c7c94 1px solid; 
+	padding-right: 10px; 
+	border-top: #7c7c94 1px solid; 
+	padding-left: 10px; 
+	font-size: 12px; 
+	background-image: url(top_group_background.gif); 
+	padding-bottom: 2px; 
+	border-left: #7c7c94 1px solid; 
+	cursor: default; 
+	color: black; 
+	padding-top: 2px; 
+	border-bottom: #bab9cd 1px solid; 
+	font-family: MS Sans Serif; 
+	background-color: #e5e6ef;
+}

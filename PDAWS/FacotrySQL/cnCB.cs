@@ -517,8 +517,7 @@ namespace PDAWS.FactorySQL
             else if (pType == "EXPRESS")//运输单信息
             {
                 strSQL = @"SELECT DISTINCT '" + pString + @"' 当前运单,A.FCARRIAGENO 所有运单,LENGTH(A.FCARRIAGENO) - LENGTH(REPLACE(A.FCARRIAGENO, '/','')) + 1 数量,A.FBILLNO 出库单
-                    , NVL(A.FAPPROVEDATE,TO_DATE('9999-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) 审核日期
-                    ,A.FDOCUMENTSTATUS 数据状态, NVL(B.FCLOSESTATUS,'B') 订单关闭, NVL(CL.FNAME, ' ') 客户
+                    , NVL(A.FAPPROVEDATE,TO_DATE('9999-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) 审核日期,A.FDOCUMENTSTATUS 数据状态, NVL(B.FCLOSESTATUS,'B') 订单关闭, NVL(CL.FNAME, ' ') 客户
                 FROM T_SAL_OUTSTOCK A
                 INNER JOIN T_SAL_OUTSTOCKENTRY_R AR ON A.FID = AR.FID
                 LEFT JOIN T_SAL_ORDER B ON AR.FSRCBILLNO = B.FBILLNO

@@ -1,0 +1,547 @@
+﻿body
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	background-color: #ffffff;
+	color: #000000;
+	margin: 0px;
+	SCROLLBAR-FACE-COLOR: #F1F1F1; SCROLLBAR-HIGHLIGHT-COLOR: #808080; SCROLLBAR-SHADOW-COLOR: #808080; SCROLLBAR-3DLIGHT-COLOR: #ffffff; SCROLLBAR-ARROW-COLOR: #808080; SCROLLBAR-TRACK-COLOR: #ffffff; SCROLLBAR-DARKSHADOW-COLOR: #ffffff;
+}
+
+select
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+}
+td
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	padding-left: 4px;
+	padding-right: 4px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+
+textarea
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+}
+
+.td0
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	padding-left: 0px;
+	padding-right: 0px;
+	padding-top: 0px;
+	padding-bottom: 0px;
+}
+
+.td1
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	padding-left: 4px;
+	padding-right: 4px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+
+.border_T
+{
+	border-top: solid 1px #808080;
+	padding: 0px 0px 0px 0px;
+}
+
+.border_L
+{
+	border-left: solid 1px #808080;
+	padding: 0px 0px 0px 0px;
+}
+
+.border_R
+{
+	border-right: solid 1px #808080;
+	padding: 0px 0px 0px 0px;
+}
+
+.border_LR
+{
+	border-left: solid 1px #808080;
+	border-right: solid 1px #808080;
+	padding: 0px 0px 0px 0px;
+}
+
+.border_All
+{
+	border-left: solid 1px #808080;
+	border-right: solid 1px #808080;
+	border-top: solid 1px #808080;
+	border-bottom: solid 1px #808080;
+	padding: 0px 0px 0px 0px;
+}
+
+.FrameTable
+{
+	border: solid 0px transparent;
+	width: 100%;
+}
+.FrameHeader
+{
+	padding: 4px 4px 4px 4px;
+}
+.FrameContent
+{
+	padding: 4px 4px 4px 4px;
+}
+.FrameContentSpan
+{
+	background-color: #808080;
+}
+.FrameFooter
+{
+	padding: 4px 4px 4px 4px;
+}
+
+.EditTable
+{
+	cursor: default;
+	width: 100%;
+	text-Align: center;
+	border: solid 0px #808080;
+	background-color: #808080;
+}
+.EditPage_Label
+{
+	background: #ECECEC;
+	height: 26px;
+	padding: 3px 10px 3px 3px;
+	text-align: right;
+	width: 15%;
+}
+.EditPage_Field
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 3px 3px 10px;
+	text-align: left;
+	width: 35%;
+}
+.EditPage_Label1
+{
+	background: #ECECEC;
+	height: 26px;
+	padding: 3px 10px 3px 3px;
+	text-align: right;
+	width: 40%;
+}
+.EditPage_Field1
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 3px 3px 10px;
+	text-align: left;
+	width: 60%;
+}
+.EditPage_Field2
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 3px 3px 10px;
+	text-align: left;
+	width: 30%;
+}
+.EditPage_Label3
+{
+	background: #ECECEC;
+	height: 26px;
+	padding: 3px 10px 3px 3px;
+	text-align: right;
+	width: 10%;
+}
+.EditPage_Field3
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 3px 3px 10px;
+	text-align: left;
+	width: 23%;
+}
+.ReportPage_Label
+{
+	background: #ECECEC;
+	height: 26px;
+	padding: 3px 10px 3px 3px;
+	text-align: center;
+}
+.ReportPage_Field
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 3px 3px 10px;
+	text-align: left;
+}
+.ReportPage_Normal
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 10px 3px 3px;
+	text-align: center;	
+}
+
+.ListTable
+{
+	cursor: default;
+	width: 100%;
+	text-Align: center;
+	border: solid 0px #808080;
+	background-color: #808080;
+	behavior: url(../Script/ListTable.htc);
+}
+
+.ListTable2
+{
+	cursor: default;
+	width: 100%;
+	text-Align: center;
+	border: solid 0px #808080;
+	background-color: #808080;
+	behavior: url(../../Script/ListTable.htc);
+}
+
+.tableHideColumn
+{
+	padding-left: 0px;
+	padding-right: 0px;
+	padding-top: 0px;
+	padding-bottom: 0px;
+	display: none;
+	width: 0px;
+}
+.tableHeader
+{
+	background: url(../Images/tbtitle.gif) fixed left top;
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	font-weight: bold;
+	padding-left: 4px;
+	padding-right: 4px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+	text-align:center;
+	height: 25px;
+}
+.tabNormal
+{
+	background: #ECECEC;
+	height: 25px;
+	padding: 2px 10px 2px 10px;
+	border: solid 1px #808080;
+	border-bottom-width: 0px;
+	text-align: center;
+}
+.tabChoosed
+{
+	background: #E0E303;
+	height: 25px;
+	padding: 2px 10px 2px 10px;
+	border: solid 1px #808080;
+	border-bottom-width: 0px;
+	text-align: center;
+}
+.tableRowOdd
+{
+	background: #FFFFFF;
+	height: 20px;
+}
+.tableRowEven
+{
+	background: #EFEFEF;
+	height: 20px;
+}
+.tableRowHover
+{
+	background: #94B6E7;
+	height: 20px;
+}
+.tableRowChoosed
+{
+	background: #FFFF00;
+	height: 20px;
+}
+
+.labelBox
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	border-style: solid;
+	border-width: 0px;
+	border-color: Gray;
+	height: 20px;
+}
+.textBox
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+}
+
+.textBoxNew
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 16px;
+}
+
+.WorldDateTime
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 22px;
+}
+
+.textBox1
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style:solid;
+	border-width: 1px;
+	border-color:White;
+	height: 20px;
+}
+
+.textBox2
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+	width: 100px;
+}
+
+.textBox3
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style:solid;
+	border-width: 1px;
+	border-color:White;
+	height: 20px;
+	width:70%;
+}
+
+.textBox4
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	color: Blue;
+	height: 20px;
+}
+
+.WF_textBox
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+	color:#333399;
+}
+
+.WF_td_Field
+{
+	background: #FFFFFF;
+	height: 26px;
+	padding: 3px 3px 3px 10px;
+	text-align: left;
+	color: #333399;
+}
+
+.WF_textTime
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+	width: 60px;
+	color:#333399;
+	background: #CCCCFF;
+}
+
+.WF_floatNumBox
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+	width: 60px;
+	color: #333399;
+}
+
+.buttonBox
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	border: solid 1px Gray;
+	border-left-width: 0px;
+	cursor: default;
+	height: 22px;
+}
+
+.button
+{
+	font-family: 宋体, Verdana, Arial;
+	font-size: 12px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	cursor: grab;
+	height: 22px;
+}
+
+.floatNumBox
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+	width: 60px;
+}
+
+.intNumBox
+{
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	height: 20px;
+	width: 60px;
+	text-align: right;
+}
+
+.MenuContainer
+{
+	width: 100%;
+	height: 100%;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.LinkSpan
+{
+	color: Blue;
+	cursor: default;
+	text-decoration: underline unset;
+}
+
+.Sys_DateBox
+{
+	background: #CCCCFF;
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	width: 80px;
+	height: 20px;
+}
+
+.Sys_DateBox1
+{
+	background: #CCCCFF;
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	width: 80px;
+	height: 20px;
+}
+
+.Sys_DateTimeBox
+{
+	background: #CCCCFF;
+	font-family: Verdana, Arial;
+	font-size: 11px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: Gray;
+	width: 140px;
+	height: 20px;
+}
+
+.DateTime_Today{border: 1px solid #000000; background: #CCCCFF;}
+.DateTime_NormalDate{border: 1px solid #FFFFFF; background: #FFFFFF;}
+.DateTime_PrevBlank{border: 1px solid #FFFFFF; background: #FFFFFF; color: #BCBCBC;}
+.DateTime_NextBlank{border: 1px solid #FFFFFF; background: #FFFFFF; color: #BCBCBC;}
+
+.DateTime_NormalDate_Hover{border: 1px solid #333333; background: #DDDDFF;}
+.DateTime_PrevBlank_Hover{border: 1px solid #999999; background: #EEEEFF;}
+.DateTime_NextBlank_Hover{border: 1px solid #999999; background: #EEEEFF;}
+
+.DateTime_Toolbar{border: 1px solid #333333; background: #EEEEFF;}
+.DateTime_ToolItem{border: 1px solid #EEEEFF; background: #EEEEFF; color: #808080}
+.DateTime_ToolItem_Hover{border: 1px solid #7788AA; background: #DDDDFF; color: #000000}
+
+
+.ListSource
+{
+}
+.DepartList
+{
+}
+
+.RemindLabel_Lack
+{
+	background-color: aqua;
+}
+.RemindLabel_Overload
+{
+	background-color: Red;
+}
+
+.ReportChart{
+}
+
+.TreeNode{
+	FONT-WEIGHT: normal; FONT-SIZE: 12px; CURSOR: default; HEIGHT: 15px;
+	
+}
+
+.div1 { border-top:buttonface 1px solid;border-left:buttonface 1px solid;border-bottom:windowframe 1px solid;border-right:windowframe 1px solid;}
+.div2 { border-top:window 1px solid;border-left:window 1px solid;border-bottom:buttonshadow 1px solid;border-right:buttonshadow 1px solid;}
+.MouseOver {background-color:highlight;color:highlighttext;font-size: 12px;cursor:default;font-size: 12px;}
+.MouseOut {background-color:white;color:buttontext;font-size: 12px;cursor:default;font-size: 12px;}
+
+
+#DivImportSchedule{DISPLAY: none;width:340px;top:0px;position:absolute;}
+#DivImportSchedule button{padding:2px 4px 0px 4px; font-size:12px;height:23px;background-color:#ece9d8;border-width:1px;}
+#DivImportSchedule .puton{background-color:#002d96; color:#fff;}
+#DivImportSchedule table{display:none;}

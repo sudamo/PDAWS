@@ -144,7 +144,7 @@ namespace PDAWS.FactorySQL
         /// <param name="pType">0、NonQuery;1、Scalar;2、Reader;3、DataTable;4、DataSet</param>
         /// <param name="pStrSQL">SQL Sentence</param>
         /// <returns></returns>
-        private static object SqlOperation(int pType, string pStrSQL)
+        public static object SqlOperation(int pType, string pStrSQL)
         {
             object obj;
             OracleDataAdapter adp;
