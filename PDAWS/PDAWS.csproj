@@ -43,9 +43,6 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="AjaxPro">
-      <HintPath>.\AjaxPro.dll</HintPath>
-    </Reference>
     <Reference Include="Kingdee.BOS.WebApi.Client, Version=6.1.316.5, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>bin\Kingdee.BOS.WebApi.Client.dll</HintPath>
@@ -78,7 +75,6 @@
   <ItemGroup>
     <Content Include="CBSW.asmx" />
     <Content Include="Index.aspx" />
-    <Content Include="js\Index.js" />
     <Content Include="Themes\Style\CssStyles.css" />
     <Content Include="Themes\Style\DynamicStyles.css" />
     <Content Include="Themes\Style\editor.css" />
@@ -90,13 +86,12 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AjaxCB.cs" />
     <Compile Include="CBSW.asmx.cs">
       <DependentUpon>CBSW.asmx</DependentUpon>
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="FacotrySQL\cnCB.cs" />
-    <Compile Include="FacotrySQL\Common.cs" />
+    <Compile Include="FactorySQL\cnCB.cs" />
+    <Compile Include="FactorySQL\ORAHelper.cs" />
     <Compile Include="Index.aspx.cs">
       <DependentUpon>Index.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>

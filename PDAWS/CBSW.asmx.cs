@@ -93,7 +93,8 @@ namespace PDAWS
         [WebMethod]
         public string Trans(string strBarcodes)
         {
-            return FactorySQL.cnCB.Trans(strBarcodes);
+            //return FactorySQL.cnCB.Trans(strBarcodes);
+            return "";
         }
 
         /// <summary>
@@ -132,6 +133,6 @@ namespace PDAWS
         public void SaveLog(string pFNumbers, string pOperator, string pType, int pFLAG, string pDescription, string pIP, string pBARCODES, string pERMESSAGE, string pMOBILLS, string pMOENTRYID, string pORDERBILLS, string pORDERENTRYID, string pMATERIALID)
         {
             FactorySQL.cnCB.SaveLog(pFNumbers, pOperator, pType, pFLAG, pDescription, pIP, pBARCODES, pERMESSAGE, pMOBILLS, pMOENTRYID, pORDERBILLS, pORDERENTRYID, pMATERIALID);
-        }
+        }        
     }
 }

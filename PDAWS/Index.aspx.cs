@@ -6,8 +6,6 @@ namespace PDAWS
     {
         protected void Page_Load(object sender, EventArgs e)
         {
-            AjaxCB.Register();
-            //AjaxPro.Utility.RegisterTypeForAjax(typeof(AjaxCB));
         }
     }
 }
