@@ -86,18 +86,6 @@ namespace PDAWS
         }
 
         /// <summary>
-        /// 寄售订单扫描生成调拨单
-        /// </summary>
-        /// <param name="strBarcodes">条码集</param>
-        /// <returns></returns>
-        [WebMethod]
-        public string Trans(string strBarcodes)
-        {
-            //return FactorySQL.cnCB.Trans(strBarcodes);
-            return "";
-        }
-
-        /// <summary>
         /// 装箱
         /// </summary>
         /// <param name="pPackageId"></param>
