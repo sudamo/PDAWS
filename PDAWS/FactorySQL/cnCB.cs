@@ -50,12 +50,11 @@ namespace PDAWS.FactorySQL
 
         static cnCB()
         {
-            _URL = ConfigurationManager.AppSettings["URL"];//http://192.168.3.247:9898/K3Cloud/,http://localhost:9898/k3cloud/
-            _ZTID = ConfigurationManager.AppSettings["ZTID"];//5c4671d93bacad,5a4b0e5784c0cf
+            _URL = ConfigurationManager.AppSettings["URL"];
+            _ZTID = ConfigurationManager.AppSettings["ZTID"];
             _UserName = "Administrator";
             _PWD = "tjb316,";
-            //_ConnectionString = "Data Source=" + ConfigurationManager.AppSettings["DB_IP"] + "/orcl;User Id=K30118;Password=Tangmi123";
-            _ConnectionString = "Data Source=" + ConfigurationManager.AppSettings["DB_IP"] + "/k3data;User Id=K3ERP0903;Password=Tangmi1234";
+            _ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         }
         #endregion
 
@@ -214,7 +213,9 @@ namespace PDAWS.FactorySQL
                     LEFT JOIN T_BAS_BILLTYPE_L BTL ON A.FBILLTYPEID = BTL.FBILLTYPEID AND BTL.FLOCALEID = 2052
                     LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
                     LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-                    WHERE PK.UNIQUENO = '" + pString + "'";
+                    WHERE PK.UNIQUENO = '" + pString + @"'
+                    GROUP BY PK.UNIQUENO,BC.BARCODE,A.FBILLNO,A.FCUSTID,CUST.FNUMBER,CUSTL.FNAME,MTLL.FNAME,A.F_PAEZ_HEADLOCADDRESS,PK.VOLUME,PK.SEALEDFLAG,A.F_PAEZ_SINGLESHIPMENT,SP.FBILLNO,BC.PACKAGESTATUS,BC.INSTOCKSTATUS,BC.UTSTOCKSTATUS,B.FBILLNO,BE.FSEQ,A.FCLOSESTATUS,ASSL.FDATAVALUE,ASSL2.FDATAVALUE,BTL.FNAME
+                    HAVING SUM(CASE NVL(AE.FMRPTERMINATESTATUS,'A') WHEN 'A' THEN 0 ELSE 1 END) = 0";
                     break;
                 case "ZD"://同一销售订单的所有已封箱未出库装箱单
                     _SQL = @"SELECT NVL(D.UNIQUENO, ' ') UNIQUENO, NVL(D.SEALEDFLAG, 0) SEALEDFLAG, NVL(C.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
