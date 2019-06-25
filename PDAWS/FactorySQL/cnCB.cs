@@ -1,23 +1,39 @@
 ﻿using System;
 using System.Data;
 using System.Collections;
-using System.Collections.Generic;
 using System.Configuration;
 using Newtonsoft.Json.Linq;
 using Kingdee.BOS.WebApi.Client;
+using Oracle.ManagedDataAccess.Client;
 
 namespace PDAWS.FactorySQL
 {
     static class cnCB
     {
         #region STATIC
+        /// <summary>
+        /// ERP地址
+        /// </summary>
         private static string _URL;
+        /// <summary>
+        /// K3Cloud帐套ID
+        /// </summary>
         private static string _ZTID;
+        /// <summary>
+        /// K3用户名
+        /// </summary>
         private static string _UserName;
+        /// <summary>
+        /// K3用户密码
+        /// </summary>
         private static string _PWD;
+        /// <summary>
+        /// SQL语句
+        /// </summary>
+        private static string _SQL;
         private static string _ConnectionString;
         /// <summary>
-        /// 
+        /// 数据库连接字符串
         /// </summary>
         public static string ConnectionString
         {
@@ -32,16 +48,13 @@ namespace PDAWS.FactorySQL
             }
         }
 
-        private static string _SQL;
-
         static cnCB()
         {
-            _URL = ConfigurationManager.AppSettings["URL"];//http://192.168.3.247:9898/K3Cloud/,http://localhost:9898/k3cloud/
-            _ZTID = ConfigurationManager.AppSettings["ZTID"];//5c4671d93bacad,5a4b0e5784c0cf
+            _URL = ConfigurationManager.AppSettings["URL"];
+            _ZTID = ConfigurationManager.AppSettings["ZTID"];
             _UserName = "Administrator";
             _PWD = "tjb316,";
-            _ConnectionString = "Data Source=" + ConfigurationManager.AppSettings["DB_IP"] + "/orcl;User Id=K30118;Password=Tangmi123";
-            //_ConnectionString = "Data Source=" + ConfigurationManager.AppSettings["DB_IP"] + "/k3data;User Id=K3ERP0903;Password=Tangmi1234";
+            _ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         }
         #endregion
 
@@ -120,555 +133,229 @@ namespace PDAWS.FactorySQL
         /// <returns></returns>
         public static DataTable GetTable(string pString, string pType)
         {
-            //OracleConnection OrlConn = new OracleConnection(ConnectionString);//Oracle 数据库实例
-            //string strSQL;  //SQL语句
-            //DataTable dt;   //返回Table
-            //DataRow dr;     //添加行
+            switch(pType)
+            {
+                case "BC"://Barcode信息
+                    _SQL = @"SELECT BC.ID BARCODEID,BC.BARCODE,BC.INSTOCKSTATUS,BC.PACKAGESTATUS,BC.UTSTOCKSTATUS
+                        , NVL(BC.KDINSTOCKID, 0) INSTOCKID,BC.MANUALGEN,NVL(PK.SEALEDFLAG, 0) SEALEDFLAG,NVL(PK.UNIQUENO, ' ') UNIQUENO,A.FBILLNO MOBILLNO
+                        , NVL(MTLL.FNAME, ' ') MATERIALNAME,NVL(AE.FQTY, 0) QTY,(SELECT COUNT(1) FROM C##BARCODE2.PM_BARCODE O WHERE O.TASKID = BC.TASKID AND O.INSTOCKSTATUS = 1) FINISHQTY,AA.FSTATUS,B.FID ORDERID
+                        , BC.KDORDERFENTRYID ORDERENTRYID,NVL(B.FBILLNO, ' ') ORDERNO,NVL(BE.FSEQ, 1) FSEQ,NVL(B.FCLOSESTATUS, 'A') FCLOSESTATUS,NVL(B.FCUSTID, 0) CUSTID
+                        , NVL(CUSTL.FNAME, ' ') CUSTOMERNAME,NVL(B.F_PAEZ_HEADLOCADDRESS, ' ') ADDRESS,CASE WHEN NVL(ASSL.FDATAVALUE, ' ') LIKE '%物流%' THEN 1 ELSE 0 END ISLOGISTICS,NVL(ASSL2.FDATAVALUE, ' ') FDELIVERYMETHOD,DEPL.FNAME FWORKSHOP
+                        , NVL(B.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT,NVL(SP.FBILLNO, ' ') SHARESHIPMENT
+                    FROM C##BARCODE2.PM_BARCODE BC
+                    LEFT JOIN T_PRD_MOENTRY AE ON BC.KDTASKFENTRYID = AE.FENTRYID
+                    LEFT JOIN T_PRD_MOENTRY_A AA ON AE.FENTRYID = AA.FENTRYID
+                    LEFT JOIN T_PRD_MO A ON AE.FID = A.FID
+                    LEFT JOIN T_SAL_ORDERENTRY BE ON BC.KDORDERFENTRYID = BE.FENTRYID
+                    LEFT JOIN T_SAL_ORDER B ON BE.FID = B.FID
+                    LEFT JOIN T_BD_DEPARTMENT DEP ON AE.FWORKSHOPID = DEP.FDEPTID
+                    LEFT JOIN T_BD_DEPARTMENT_L DEPL ON DEP.FDEPTID = DEPL.FDEPTID AND DEPL.FLOCALEID = 2052
+                    LEFT JOIN T_BD_CUSTOMER_L CUSTL ON B.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
+                    LEFT JOIN T_BD_MATERIAL_L MTLL ON BC.KDMTLID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON ASSL.FENTRYID = B.FHEADDELIVERYWAY AND ASSL.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON ASSL2.FENTRYID = B.FDELIVERYMETHOD AND ASSL2.FLOCALEID = 2052
+                    LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON B.FID = SPE.ORDERINTERID
+                    LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
+                    LEFT JOIN C##BARCODE2.PM_PRODUCTPACKAGE PK ON BC.PACKAGEID = PK.ID
+                    WHERE BC.BARCODE = '" + pString + "'";
+                    break;
+                case "PK"://装箱信息
+                    _SQL = @"SELECT PK.ID PACKAGEID,PK.UNIQUENO,NVL(A.FCUSTID, 0) CUSTID,NVL(CUSTL.FNAME, ' ') CUSTOMERNAME,NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') ADDRESS,PK.SEALEDFLAG,NVL(PK.VOLUME, 0) VOLUME,NVL(TK.FBILLNO, ' ') BILLNO
+                        , (SELECT COUNT(1) FROM C##BARCODE2.PM_BARCODE WHERE PACKAGEID = BC.PACKAGEID AND PACKAGESTATUS = 1) PACKAGEQTY,NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT,NVL(I.FBILLNO, ' ') SHARESHIPMENT
+                        , NVL(BC.BARCODE, ' ') BARCODE,NVL(A.FBILLNO, ' ') ORDERNO,NVL(CUSTL.FNAME, ' ') MATERIALNAME,NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS,NVL(ASSL.FDATAVALUE, ' ') FDELIVERYMETHOD
+                    FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
+                    LEFT JOIN C##BARCODE2.PM_BarCode BC ON BC.PACKAGEID = PK.ID
+                    LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
+                    LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON ASSL.FENTRYID = A.FDELIVERYMETHOD AND ASSL.FLOCALEID = 2052
+                    LEFT JOIN T_BD_CUSTOMER_L CUSTL ON A.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
+                    LEFT JOIN C##BARCODE2.PM_PRODUCETASK TK ON BC.TASKID = TK.ID
+                    LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SP ON A.FID = SP.ORDERINTERID
+                    LEFT JOIN C##BARCODE2.PM_SENDPLAN I ON SP.FINTERID = I.FINTERID
+                    WHERE PK.UNIQUENO = '" + pString + "'";
+                    break;
+                case "PKFIX"://装箱维护信息
+                    _SQL = @"SELECT PK.ID PACKAGEID,PK.UNIQUENO,PK.SEALEDFLAG,NVL(PK.VOLUME, 0) VOLUME,BC.BARCODE,BC.KDINSTOCKID INSTOCKID
+                        , NVL(A.FBILLNO, ' ') BILLNO,NVL(CUSTL.FNAME, ' ') CUSTOMERNAME,NVL(MTLL.FNAME, ' ') MATERIALNAME,NVL(A.FCUSTID, 0) FCUSTID
+                        , PK.UTSTATUS,NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS
+                    FROM  C##BARCODE2.PM_PRODUCTPACKAGE PK
+                    INNER JOIN C##BARCODE2.PM_BarCode BC ON BC.PACKAGEID = PK.ID
+                    LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
+                    LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
+                    LEFT JOIN T_BD_CUSTOMER_L CUSTL ON A.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
+                    LEFT JOIN T_BD_MATERIAL_L MTLL ON BC.KDMTLID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
+                    WHERE PK.UNIQUENO = '" + pString + "'";
+                    break;
+                case "INVENTORY"://仓库列表
+                    _SQL = @"SELECT 'ID:' || A.FSTOCKID || ';Number:' || A.FNUMBER FNUMBER,B.FNAME
+                    FROM T_BD_STOCK A
+                    INNER JOIN T_BD_STOCK_L B ON A.FSTOCKID = B.FSTOCKID AND B.FLOCALEID = 2052
+                    WHERE A.FUSEORGID = " + pString + @"
+                    ORDER BY A.FNUMBER";
+                    break;
+                case "SALOUTSTOCK"://销售出库信息
+                    //_SQL = @"SELECT PK.UNIQUENO,BC.BARCODE, NVL(A.FBILLNO, ' ') FBILLNO,NVL(A.FCUSTID, 0) KDCUSTID,NVL(CUST.FNUMBER, ' ') CUSTID
+                    //    , NVL(CUSTL.FNAME, ' ') CUSTNAME,NVL(MTLL.FNAME, ' ') MATERIALNAME,NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') FADDRESS,NVL(PK.VOLUME, 0) VOLUME,PK.SEALEDFLAG
+                    //    , NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT,NVL(SP.FBILLNO, ' ') SHARESHIPMENT,BC.PACKAGESTATUS, BC.INSTOCKSTATUS,BC.UTSTOCKSTATUS, B.FBILLNO MOBILLNO,NVL(BE.FSEQ, 0) FSEQ
+                    //    , NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS,NVL(ASSL.FDATAVALUE, ' ') 商品名,NVL(ASSL2.FDATAVALUE,' ') 颜色,NVL(BTL.FNAME, ' ') 销售订单类型
+                    //FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
+                    //INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID
+                    //LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
+                    //LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
+                    //LEFT JOIN T_PRD_MOENTRY BE ON BC.KDTASKFENTRYID = BE.FENTRYID
+                    //LEFT JOIN T_PRD_MO B ON BE.FID = B.FID
+                    //LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
+                    //LEFT JOIN T_BD_MATERIAL_L MTLL ON MTL.FMATERIALID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
+                    //LEFT JOIN T_BD_CUSTOMER CUST ON A.FCUSTID = CUST.FCUSTID
+                    //LEFT JOIN T_BD_CUSTOMER_L CUSTL ON CUST.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
+                    //LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON MTL.F_PAEZ_TRADE = ASSL.FENTRYID AND ASSL.FLOCALEID = 2052
+                    //LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON MTL.F_PAEZ_COLOR = ASSL2.FENTRYID AND ASSL2.FLOCALEID = 2052
+                    //LEFT JOIN T_BAS_BILLTYPE_L BTL ON A.FBILLTYPEID = BTL.FBILLTYPEID AND BTL.FLOCALEID = 2052
+                    //LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
+                    //LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
+                    //WHERE PK.UNIQUENO = '" + pString + @"'
+                    //GROUP BY PK.UNIQUENO,BC.BARCODE,A.FBILLNO,A.FCUSTID,CUST.FNUMBER,CUSTL.FNAME,MTLL.FNAME,A.F_PAEZ_HEADLOCADDRESS,PK.VOLUME,PK.SEALEDFLAG,A.F_PAEZ_SINGLESHIPMENT,SP.FBILLNO,BC.PACKAGESTATUS,BC.INSTOCKSTATUS,BC.UTSTOCKSTATUS,B.FBILLNO,BE.FSEQ,A.FCLOSESTATUS,ASSL.FDATAVALUE,ASSL2.FDATAVALUE,BTL.FNAME
+                    //HAVING SUM(CASE NVL(AE.FMRPTERMINATESTATUS,'A') WHEN 'A' THEN 0 ELSE 1 END) = 0";
 
-            //dt = new DataTable();
-            //dt.TableName = "TableInfo";
+                    _SQL = @"SELECT PK.UNIQUENO,BC.BARCODE, NVL(A.FBILLNO, ' ') FBILLNO,NVL(A.FCUSTID, 0) KDCUSTID,NVL(CUST.FNUMBER, ' ') CUSTID
+                        , NVL(CUSTL.FNAME, ' ') CUSTNAME,NVL(MTLL.FNAME, ' ') MATERIALNAME,NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') FADDRESS,NVL(PK.VOLUME, 0) VOLUME,PK.SEALEDFLAG
+                        , NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT,NVL(SP.FBILLNO, ' ') SHARESHIPMENT,BC.PACKAGESTATUS, BC.INSTOCKSTATUS,BC.UTSTOCKSTATUS, B.FBILLNO MOBILLNO,NVL(BE.FSEQ, 0) FSEQ
+                        , NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS,NVL(ASSL.FDATAVALUE, ' ') 商品名,NVL(ASSL2.FDATAVALUE,' ') 颜色,NVL(BTL.FNAME, ' ') 销售订单类型,A.FID
+                    FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
+                    INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID
+                    LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
+                    LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
+                    LEFT JOIN T_PRD_MOENTRY BE ON BC.KDTASKFENTRYID = BE.FENTRYID
+                    LEFT JOIN T_PRD_MO B ON BE.FID = B.FID
+                    LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
+                    LEFT JOIN T_BD_MATERIAL_L MTLL ON MTL.FMATERIALID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
+                    LEFT JOIN T_BD_CUSTOMER CUST ON A.FCUSTID = CUST.FCUSTID
+                    LEFT JOIN T_BD_CUSTOMER_L CUSTL ON CUST.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON MTL.F_PAEZ_TRADE = ASSL.FENTRYID AND ASSL.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON MTL.F_PAEZ_COLOR = ASSL2.FENTRYID AND ASSL2.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_BILLTYPE_L BTL ON A.FBILLTYPEID = BTL.FBILLTYPEID AND BTL.FLOCALEID = 2052
+                    LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
+                    LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
+                    WHERE PK.UNIQUENO = '" + pString + @"' AND PK.UNIQUENO NOT IN
+                    (
+                          SELECT PK.UNIQUENO
+                          FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
+                          INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID
+                          LEFT JOIN T_SAL_ORDERENTRY OE ON BC.KDORDERFENTRYID = OE.FENTRYID
+                          WHERE PK.UNIQUENO = '" + pString + @"'
+                          GROUP BY PK.UNIQUENO
+                          HAVING SUM(CASE NVL(OE.FMRPTERMINATESTATUS,'A') WHEN 'A' THEN 0 ELSE 1 END) > 0
+                    )";
+                    break;
+                case "ZD"://同一销售订单的所有已封箱未出库装箱单
+                    _SQL = @"SELECT NVL(D.UNIQUENO, ' ') UNIQUENO, NVL(D.SEALEDFLAG, 0) SEALEDFLAG, NVL(C.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
+                    FROM T_SAL_ORDER A
+                    INNER JOIN T_SAL_ORDERENTRY B ON A.FID = B.FID
+                    INNER JOIN C##BARCODE2.PM_BARCODE C ON B.FENTRYID = C.KDORDERFENTRYID
+                    INNER JOIN C##BARCODE2.PM_PRODUCTPACKAGE D ON C.PACKAGEID = D.ID
+                    WHERE D.SEALEDFLAG = 1 AND C.UTSTOCKSTATUS = 0 AND A.FBILLNO = '" + pString + @"'
+                    GROUP BY D.UNIQUENO, D.SEALEDFLAG, C.UTSTOCKSTATUS";
+                    break;
+                case "ZDBC"://同一销售订单的所有产品条码
+                    _SQL = @"SELECT A.FBILLNO 订单号,NVL(C.BARCODE, ' ') BARCODE,CASE WHEN NVL(C.INSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 入库状态,CASE WHEN NVL(C.UTSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 出库状态,CASE WHEN NVL(C.PACKAGESTATUS, 0) = 0 THEN '否' ELSE '是' END 装箱状态
+                        ,NVL((SELECT SUM(D.FQTY) FROM T_SAL_ORDERENTRY D INNER JOIN T_SAL_ORDER E ON D.FID = E.FID INNER JOIN T_BD_MATERIAL F ON D.FMATERIALID = F.FMATERIALID AND F.FNUMBER LIKE '3%' WHERE E.FBILLNO = A.FBILLNO),0) ALLQTY
+                        ,NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
+                    FROM T_SAL_ORDER A
+                    INNER JOIN T_SAL_ORDERENTRY B ON A.FID = B.FID
+                    INNER JOIN C##BARCODE2.PM_BARCODE C ON B.FENTRYID = C.KDORDERFENTRYID
+                    LEFT JOIN T_BD_MATERIAL MTL ON B.FMATERIALID = MTL.FMATERIALID
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
+                    WHERE A.FBILLNO = '" + pString + @"'";
+                    break;
+                case "PD"://同一拼单的所有已封箱未出库装箱单
+                    _SQL = @"SELECT A.UNIQUENO,A.SEALEDFLAG,NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
+                    FROM C##BARCODE2.PM_PRODUCTPACKAGE A
+                    INNER JOIN C##BARCODE2.PM_BARCODE B ON B.PACKAGEID = A.ID
+                    INNER JOIN T_SAL_ORDERENTRY C ON C.FENTRYID = B.KDORDERFENTRYID
+                    INNER JOIN T_SAL_ORDER D ON C.FID = D.FID
+                    LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY E ON D.FID = E.ORDERINTERID
+                    LEFT JOIN C##BARCODE2.PM_SENDPLAN F ON E.FINTERID = F.FINTERID
+                    WHERE A.SEALEDFLAG = 1 AND B.UTSTOCKSTATUS = 0 AND F.FBILLNO = '" + pString + @"'
+                    GROUP BY A.UNIQUENO, A.SEALEDFLAG, B.UTSTOCKSTATUS";
+                    break;
+                case "PDBC"://同一拼单的所有产品条码
+                    _SQL = @"SELECT A.订单号,NVL(E.BARCODE, ' ') BARCODE,CASE WHEN NVL(E.INSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 入库状态,CASE WHEN NVL(E.UTSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 出库状态,CASE WHEN NVL(E.PACKAGESTATUS, 0) = 0 THEN '否' ELSE '是' END 装箱状态
+                        , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
+                    FROM C##BARCODE2.PM_SENDPLAN A
+                    INNER JOIN C##BARCODE2.PM_SENDPLANENTRY B ON A.FINTERID = B.FINTERID
+                    INNER JOIN T_SAL_ORDER C ON B.ORDERINTERID = C.FID
+                    INNER JOIN T_SAL_ORDERENTRY D ON C.FID = D.FID
+                    INNER JOIN C##BARCODE2.PM_BARCODE E ON D.FENTRYID = E.KDORDERFENTRYID
+                    LEFT JOIN T_BD_MATERIAL MTL ON D.FMATERIALID = MTL.FMATERIALID
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
+                    LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
+                    WHERE A.FBILLNO = '" + pString + @"'";
+                    break;
+                case "OT"://非整非拼单同一客户的所有已入库未出库装箱单
+                    {
+                        string FCustid = string.Empty;
+                        string FAddress = string.Empty;
+                        FCustid = pString.Substring(0, pString.IndexOf("|"));
+                        FAddress = pString.Substring(pString.IndexOf("|") + 1, pString.Length - pString.IndexOf("|") - 1);
+                        _SQL = @"SELECT DISTINCT A.UNIQUENO, A.SEALEDFLAG,NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
+                        FROM C##BARCODE2.PM_PRODUCTPACKAGE A
+                        INNER JOIN C##BARCODE2.PM_BARCODE B ON B.PACKAGEID = A.ID
+                        INNER JOIN T_SAL_ORDERENTRY CE ON CE.FENTRYID = B.KDORDERFENTRYID
+                        INNER JOIN T_SAL_ORDER C ON CE.FID = C.FID
+                        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON C.FID = DE.ORDERINTERID
+                        LEFT JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
+                        WHERE B.INSTOCKSTATUS = 1 AND B.UTSTOCKSTATUS = 0 AND C.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND C.FCUSTID = " + FCustid + " AND C.F_PAEZ_HEADLOCADDRESS = '" + FAddress + "'";
+                    }
+                    break;
+                case "OTBC"://非整非拼单同一客户的所有已入库未出库产品条码
+                    {
+                        string FCustid = string.Empty;
+                        string FAddress = string.Empty;
+                        FCustid = pString.Substring(0, pString.IndexOf("|"));
+                        FAddress = pString.Substring(pString.IndexOf("|") + 1, pString.Length - pString.IndexOf("|") - 1);
+                        _SQL = @"SELECT A.FBILLNO 订单号,NVL(B.BARCODE, ' ') BARCODE,'是' 入库状态,'否' 出库状态,CASE WHEN NVL(B.PACKAGESTATUS, 0) = 0 THEN '否' ELSE '是' END 装箱状态,NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
+                        FROM T_SAL_ORDER A
+                        INNER JOIN T_SAL_ORDERENTRY AE ON A.FID = AE.FID
+                        INNER JOIN T_SAL_ORDERENTRY_R AR ON AE.FENTRYID = AR.FENTRYID
+                        INNER JOIN C##BARCODE2.PM_BARCODE B ON AE.FENTRYID = B.KDORDERFENTRYID
+                        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY CE ON A.FID = CE.ORDERINTERID
+                        LEFT JOIN C##BARCODE2.PM_SENDPLAN C ON CE.FINTERID = C.FINTERID
+                        LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
+                        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
+                        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
+                        WHERE B.INSTOCKSTATUS = 1 AND B.UTSTOCKSTATUS = 0 AND A.F_PAEZ_SINGLESHIPMENT = 0 AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND (C.FBILLNO IS NULL OR C.FBILLNO = ' ') AND A.FCUSTID = " + FCustid + " AND A.F_PAEZ_HEADLOCADDRESS = '" + FAddress + "'";
+                    }
+                    break;
+                case "EXPRESS"://运输单信息
+                    _SQL = @"SELECT DISTINCT '" + pString + @"' 当前运单,A.FCARRIAGENO 所有运单,LENGTH(A.FCARRIAGENO) - LENGTH(REPLACE(A.FCARRIAGENO, '/','')) + 1 数量,A.FBILLNO 出库单
+                        , NVL(A.FAPPROVEDATE,TO_DATE('9999-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) 审核日期,A.FDOCUMENTSTATUS 数据状态, NVL(B.FCLOSESTATUS,'B') 订单关闭, NVL(CL.FNAME, ' ') 客户
+                    FROM T_SAL_OUTSTOCK A
+                    INNER JOIN T_SAL_OUTSTOCKENTRY_R AR ON A.FID = AR.FID
+                    LEFT JOIN T_SAL_ORDER B ON AR.FSRCBILLNO = B.FBILLNO
+                    LEFT JOIN T_BD_CUSTOMER_L CL ON A.FCUSTOMERID = CL.FCUSTID AND CL.FLOCALEID = 2052
+                    WHERE INSTR(A.FCARRIAGENO,'" + pString + "') > 0";
+                    break;
+                case "BCLIST"://根据客户分组条码
+                    _SQL = @"SELECT WM_CONCAT(TO_CHAR(B.BARCODE)) BCLIST
+                    FROM C##BARCODE2.PM_PRODUCTPACKAGE A
+                    INNER JOIN C##BARCODE2.PM_BARCODE B ON A.ID = B.PACKAGEID AND B.INSTOCKSTATUS = 1 AND B.PACKAGESTATUS = 1 AND B.UTSTOCKSTATUS = 0
+                    INNER JOIN T_SAL_ORDERENTRY C ON B.KDORDERFENTRYID = C.FENTRYID
+                    INNER JOIN T_SAL_ORDER D ON C.FID = D.FID
+                    INNER JOIN T_BD_CUSTOMER E ON D.FCUSTID = E.FCUSTID
+                    WHERE A.UNIQUENO IN(" + pString + @") AND A.SEALEDFLAG = 1
+                    GROUP BY E.FNUMBER";
+                    break;
+                default:
+                    _SQL = string.Empty;
+                    break;
+            }
 
-            //try
-            //{
-            //    if (pType == "BC")//Barcode信息
-            //    {
-            //        strSQL = @"SELECT BC.ID BARCODEID, BC.BARCODE, BC.INSTOCKSTATUS, BC.PACKAGESTATUS, BC.UTSTOCKSTATUS
-            //            , NVL(BC.KDINSTOCKID, 0) INSTOCKID, BC.MANUALGEN, NVL(PK.SEALEDFLAG, 0) SEALEDFLAG, NVL(PK.UNIQUENO, ' ') UNIQUENO, A.FBILLNO MOBILLNO
-            //            , NVL(MTLL.FNAME, ' ') MATERIALNAME, NVL(AE.FQTY, 0) QTY, (SELECT COUNT(1) FROM C##BARCODE2.PM_BARCODE O WHERE O.TASKID = BC.TASKID AND O.INSTOCKSTATUS = 1) FINISHQTY, AA.FSTATUS, B.FID ORDERID
-            //            , BC.KDORDERFENTRYID ORDERENTRYID, NVL(B.FBILLNO, ' ') ORDERNO, NVL(BE.FSEQ, 1) FSEQ, NVL(B.FCLOSESTATUS, 'A') FCLOSESTATUS, NVL(B.FCUSTID, 0) CUSTID
-            //            , NVL(CUSTL.FNAME, ' ') CUSTOMERNAME, NVL(B.F_PAEZ_HEADLOCADDRESS, ' ') ADDRESS, CASE WHEN NVL(ASSL.FDATAVALUE, ' ') LIKE '%物流%' THEN 1 ELSE 0 END ISLOGISTICS,NVL(ASSL2.FDATAVALUE, ' ') FDELIVERYMETHOD, DEPL.FNAME FWORKSHOP
-            //            , NVL(B.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT, NVL(SP.FBILLNO, ' ') SHARESHIPMENT
-            //        FROM C##BARCODE2.PM_BARCODE BC
-            //        LEFT JOIN T_PRD_MOENTRY AE ON BC.KDTASKFENTRYID = AE.FENTRYID
-            //        LEFT JOIN T_PRD_MOENTRY_A AA ON AE.FENTRYID = AA.FENTRYID
-            //        LEFT JOIN T_PRD_MO A ON AE.FID = A.FID
-            //        LEFT JOIN T_SAL_ORDERENTRY BE ON BC.KDORDERFENTRYID = BE.FENTRYID
-            //        LEFT JOIN T_SAL_ORDER B ON BE.FID = B.FID
-            //        LEFT JOIN T_BD_DEPARTMENT DEP ON AE.FWORKSHOPID = DEP.FDEPTID
-            //        LEFT JOIN T_BD_DEPARTMENT_L DEPL ON DEP.FDEPTID = DEPL.FDEPTID AND DEPL.FLOCALEID = 2052
-            //        LEFT JOIN T_BD_CUSTOMER_L CUSTL ON B.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-            //        LEFT JOIN T_BD_MATERIAL_L MTLL ON BC.KDMTLID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON ASSL.FENTRYID = B.FHEADDELIVERYWAY AND ASSL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON ASSL2.FENTRYID = B.FDELIVERYMETHOD AND ASSL2.FLOCALEID = 2052
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON B.FID = SPE.ORDERINTERID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-            //        LEFT JOIN C##BARCODE2.PM_PRODUCTPACKAGE PK ON BC.PACKAGEID = PK.ID
-            //        WHERE BC.BARCODE = '" + pString + "'";
+            DataTable dt = new DataTable();
+            if (!_SQL.Equals(string.Empty))
+                dt = ORAHelper.ExecuteTable(_SQL);
 
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "PK")//装箱信息
-            //    {
-            //        strSQL = @"SELECT PK.ID PACKAGEID, PK.UNIQUENO, NVL(A.FCUSTID, 0) CUSTID, NVL(CUSTL.FNAME, ' ') CUSTOMERNAME, NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') ADDRESS, PK.SEALEDFLAG, NVL(PK.VOLUME, 0) VOLUME, NVL(TK.FBILLNO, ' ') BILLNO
-            //            , (SELECT COUNT(1) FROM C##BARCODE2.PM_BARCODE WHERE PACKAGEID = BC.PACKAGEID AND PACKAGESTATUS = 1) PACKAGEQTY, NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT, NVL(I.FBILLNO, ' ') SHARESHIPMENT
-            //            , NVL(BC.BARCODE, ' ') BARCODE, NVL(A.FBILLNO, ' ') ORDERNO, NVL(CUSTL.FNAME, ' ') MATERIALNAME, NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS,NVL(ASSL.FDATAVALUE, ' ') FDELIVERYMETHOD
-            //        FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
-            //        LEFT JOIN C##BARCODE2.PM_BarCode BC ON BC.PACKAGEID = PK.ID
-            //        LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-            //        LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON ASSL.FENTRYID = A.FDELIVERYMETHOD AND ASSL.FLOCALEID = 2052
-            //        LEFT JOIN T_BD_CUSTOMER_L CUSTL ON A.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-            //        LEFT JOIN C##BARCODE2.PM_PRODUCETASK TK ON BC.TASKID = TK.ID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SP ON A.FID = SP.ORDERINTERID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLAN I ON SP.FINTERID = I.FINTERID
-            //        WHERE PK.UNIQUENO = '" + pString + "'";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "PKFIX")//装箱维护信息
-            //    {
-            //        strSQL = @"SELECT PK.ID PACKAGEID, PK.UNIQUENO, PK.SEALEDFLAG, NVL(PK.VOLUME, 0) VOLUME, BC.BARCODE, BC.KDINSTOCKID INSTOCKID
-            //            , NVL(A.FBILLNO, ' ') BILLNO, NVL(CUSTL.FNAME, ' ') CUSTOMERNAME, NVL(MTLL.FNAME, ' ') MATERIALNAME, NVL(A.FCUSTID, 0) FCUSTID
-            //            , PK.UTSTATUS, NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS
-            //        FROM  C##BARCODE2.PM_PRODUCTPACKAGE PK
-            //        INNER JOIN C##BARCODE2.PM_BarCode BC ON BC.PACKAGEID = PK.ID
-            //        LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-            //        LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
-            //        LEFT JOIN T_BD_CUSTOMER_L CUSTL ON A.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-            //        LEFT JOIN T_BD_MATERIAL_L MTLL ON BC.KDMTLID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
-            //        WHERE PK.UNIQUENO = '" + pString + "'";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "INVENTORY")//仓库列表
-            //    {
-            //        strSQL = @"SELECT 'ID:' || A.FSTOCKID || ';Number:' || A.FNUMBER FNUMBER, B.FNAME
-            //        FROM T_BD_STOCK A
-            //        INNER JOIN T_BD_STOCK_L B ON A.FSTOCKID = B.FSTOCKID AND B.FLOCALEID = 2052
-            //        WHERE A.FUSEORGID = " + pString + @"
-            //        ORDER BY A.FNUMBER";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "SALOUTSTOCK")//销售出库信息
-            //    {
-            //        strSQL = @"SELECT PK.UNIQUENO, BC.BARCODE, NVL(A.FBILLNO, ' ') FBILLNO,NVL(A.FCUSTID, 0) KDCUSTID, NVL(CUST.FNUMBER, ' ') CUSTID
-            //            , NVL(CUSTL.FNAME, ' ') CUSTNAME, NVL(MTLL.FNAME, ' ') MATERIALNAME, NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') FADDRESS, NVL(PK.VOLUME, 0) VOLUME, PK.SEALEDFLAG
-            //            , NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT, NVL(SP.FBILLNO, ' ') SHARESHIPMENT, BC.PACKAGESTATUS, BC.INSTOCKSTATUS, BC.UTSTOCKSTATUS, B.FBILLNO MOBILLNO, NVL(BE.FSEQ, 0) FSEQ
-            //            , NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS, NVL(ASSL.FDATAVALUE, ' ') 商品名,NVL(ASSL2.FDATAVALUE,' ') 颜色,NVL(BTL.FNAME, ' ') 销售订单类型
-            //        FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
-            //        INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID
-            //        LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-            //        LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
-            //        LEFT JOIN T_PRD_MOENTRY BE ON BC.KDTASKFENTRYID = BE.FENTRYID
-            //        LEFT JOIN T_PRD_MO B ON BE.FID = B.FID
-            //        LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
-            //        LEFT JOIN T_BD_MATERIAL_L MTLL ON MTL.FMATERIALID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
-            //        LEFT JOIN T_BD_CUSTOMER CUST ON A.FCUSTID = CUST.FCUSTID
-            //        LEFT JOIN T_BD_CUSTOMER_L CUSTL ON CUST.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON MTL.F_PAEZ_TRADE = ASSL.FENTRYID AND ASSL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON MTL.F_PAEZ_COLOR = ASSL2.FENTRYID AND ASSL2.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_BILLTYPE_L BTL ON A.FBILLTYPEID = BTL.FBILLTYPEID AND BTL.FLOCALEID = 2052
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-            //        WHERE PK.UNIQUENO = '" + pString + "'";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "ZD")//同一销售订单的所有已封箱未出库装箱单
-            //    {
-            //        strSQL = @"SELECT NVL(D.UNIQUENO, ' ') UNIQUENO, NVL(D.SEALEDFLAG, 0) SEALEDFLAG, NVL(C.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
-            //        FROM T_SAL_ORDER A
-            //        INNER JOIN T_SAL_ORDERENTRY B ON A.FID = B.FID
-            //        INNER JOIN C##BARCODE2.PM_BARCODE C ON B.FENTRYID = C.KDORDERFENTRYID
-            //        INNER JOIN C##BARCODE2.PM_PRODUCTPACKAGE D ON C.PACKAGEID = D.ID
-            //        WHERE D.SEALEDFLAG = 1 AND C.UTSTOCKSTATUS = 0 AND A.FBILLNO = '" + pString + @"'
-            //        GROUP BY D.UNIQUENO, D.SEALEDFLAG, C.UTSTOCKSTATUS";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "ZDBC")//同一销售订单的所有产品条码
-            //    {
-            //        strSQL = @"SELECT A.FBILLNO ORDERNO, NVL(C.BARCODE, ' ') BARCODE, NVL(C.INSTOCKSTATUS, 0) INSTOCKSTATUS, NVL(C.UTSTOCKSTATUS, 0) UTSTOCKSTATUS, NVL(C.PACKAGESTATUS, 0) PACKAGESTATUS
-            //            , (SELECT SUM(D.FQTY) FROM T_SAL_ORDERENTRY D INNER JOIN T_SAL_ORDER E ON D.FID = E.FID INNER JOIN T_BD_MATERIAL F ON D.FMATERIALID = F.FMATERIALID AND F.FNUMBER LIKE '3%' WHERE E.FBILLNO = A.FBILLNO) ALLQTY
-            //            , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
-            //        FROM T_SAL_ORDER A
-            //        INNER JOIN T_SAL_ORDERENTRY B ON A.FID = B.FID
-            //        INNER JOIN C##BARCODE2.PM_BARCODE C ON B.FENTRYID = C.KDORDERFENTRYID
-            //        LEFT JOIN T_BD_MATERIAL MTL ON B.FMATERIALID = MTL.FMATERIALID
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
-            //        WHERE A.FBILLNO = '" + pString + @"'";
-
-            //        dt.Columns.Add("订单号");
-            //        dt.Columns.Add("BARCODE");
-            //        dt.Columns.Add("入库状态");
-            //        dt.Columns.Add("出库状态");
-            //        dt.Columns.Add("装箱状态");
-
-            //        dt.Columns.Add("ALLQTY");
-            //        dt.Columns.Add("商品名");
-            //        dt.Columns.Add("颜色");
-            //        OrlConn.Open();
-            //        OracleCommand cmd = OrlConn.CreateCommand();
-            //        cmd.CommandText = strSQL;
-            //        using (OracleDataReader rdr = cmd.ExecuteReader())
-            //        {
-            //            while (rdr.Read())
-            //            {
-            //                dr = dt.NewRow();
-            //                dr["订单号"] = rdr.GetString(0);
-            //                dr["BARCODE"] = rdr.GetString(1);
-            //                dr["入库状态"] = rdr.GetInt32(2) == 1 ? "是" : "否";
-            //                dr["出库状态"] = rdr.GetInt32(3) == 1 ? "是" : "否";
-            //                dr["装箱状态"] = rdr.GetInt32(4) == 1 ? "是" : "否";
-
-            //                dr["ALLQTY"] = rdr.GetInt32(5);
-            //                dr["商品名"] = rdr.GetString(6);
-            //                dr["颜色"] = rdr.GetString(7);
-
-            //                dt.Rows.Add(dr);
-            //            }
-            //            rdr.Close();
-            //        }
-            //    }
-            //    else if (pType == "PD")//同一拼单的所有已封箱未出库装箱单
-            //    {
-            //        strSQL = @"SELECT A.UNIQUENO, A.SEALEDFLAG, NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
-            //        FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-            //        INNER JOIN C##BARCODE2.PM_BARCODE B ON B.PACKAGEID = A.ID
-            //        INNER JOIN T_SAL_ORDERENTRY C ON C.FENTRYID = B.KDORDERFENTRYID
-            //        INNER JOIN T_SAL_ORDER D ON C.FID = D.FID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY E ON D.FID = E.ORDERINTERID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLAN F ON E.FINTERID = F.FINTERID
-            //        WHERE A.SEALEDFLAG = 1 AND B.UTSTOCKSTATUS = 0 AND F.FBILLNO = '" + pString + @"'
-            //        GROUP BY A.UNIQUENO, A.SEALEDFLAG, B.UTSTOCKSTATUS";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "PDBC")//同一拼单的所有产品条码
-            //    {
-            //        strSQL = @"SELECT A.FBILLNO, NVL(E.BARCODE, ' ') BARCODE, NVL(E.INSTOCKSTATUS, 0) INSTOCKSTATUS, NVL(E.UTSTOCKSTATUS, 0) UTSTOCKSTATUS, NVL(E.PACKAGESTATUS, 0) PACKAGESTATUS
-            //            , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
-            //        FROM C##BARCODE2.PM_SENDPLAN A
-            //        INNER JOIN C##BARCODE2.PM_SENDPLANENTRY B ON A.FINTERID = B.FINTERID
-            //        INNER JOIN T_SAL_ORDER C ON B.ORDERINTERID = C.FID
-            //        INNER JOIN T_SAL_ORDERENTRY D ON C.FID = D.FID
-            //        INNER JOIN C##BARCODE2.PM_BARCODE E ON D.FENTRYID = E.KDORDERFENTRYID
-            //        LEFT JOIN T_BD_MATERIAL MTL ON D.FMATERIALID = MTL.FMATERIALID
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
-            //        WHERE A.FBILLNO = '" + pString + @"'";
-
-            //        dt.Columns.Add("订单号");
-            //        dt.Columns.Add("BARCODE");
-            //        dt.Columns.Add("入库状态");
-            //        dt.Columns.Add("出库状态");
-            //        dt.Columns.Add("装箱状态");
-
-            //        dt.Columns.Add("商品名");
-            //        dt.Columns.Add("颜色");
-
-            //        OrlConn.Open();
-            //        OracleCommand cmd = OrlConn.CreateCommand();
-            //        cmd.CommandText = strSQL;
-            //        using (OracleDataReader rdr = cmd.ExecuteReader())
-            //        {
-            //            while (rdr.Read())
-            //            {
-            //                dr = dt.NewRow();
-            //                dr["订单号"] = rdr.GetString(0);
-            //                dr["BARCODE"] = rdr.GetString(1);
-            //                dr["入库状态"] = rdr.GetInt32(2) == 1 ? "是" : "否";
-            //                dr["出库状态"] = rdr.GetInt32(3) == 1 ? "是" : "否";
-            //                dr["装箱状态"] = rdr.GetInt32(4) == 1 ? "是" : "否";
-
-            //                dr["商品名"] = rdr.GetString(5);
-            //                dr["颜色"] = rdr.GetString(6);
-
-            //                dt.Rows.Add(dr);
-            //            }
-            //            rdr.Close();
-            //        }
-            //    }
-            //    else if (pType == "OT")//非整非拼单同一客户的所有已入库未出库装箱单
-            //    {
-            //        string FCustid = string.Empty;
-            //        string FAddress = string.Empty;
-            //        FCustid = pString.Substring(0, pString.IndexOf("|"));
-            //        FAddress = pString.Substring(pString.IndexOf("|") + 1, pString.Length - pString.IndexOf("|") - 1);
-            //        strSQL = @"SELECT DISTINCT A.UNIQUENO, A.SEALEDFLAG, NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
-            //        FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-            //        INNER JOIN C##BARCODE2.PM_BARCODE B ON B.PACKAGEID = A.ID
-            //        INNER JOIN T_SAL_ORDERENTRY CE ON CE.FENTRYID = B.KDORDERFENTRYID
-            //        INNER JOIN T_SAL_ORDER C ON CE.FID = C.FID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON C.FID = DE.ORDERINTERID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
-            //        WHERE B.INSTOCKSTATUS = 1 AND B.UTSTOCKSTATUS = 0 AND C.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND C.FCUSTID = " + FCustid + " AND C.F_PAEZ_HEADLOCADDRESS = '" + FAddress + "'";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "OTBC")//非整非拼单同一客户的所有已入库未出库产品条码
-            //    {
-            //        string FCustid = string.Empty;
-            //        string FAddress = string.Empty;
-            //        FCustid = pString.Substring(0, pString.IndexOf("|"));
-            //        FAddress = pString.Substring(pString.IndexOf("|") + 1, pString.Length - pString.IndexOf("|") - 1);
-            //        strSQL = @"SELECT A.FBILLNO ORDERNO, NVL(B.BARCODE, ' ') BARCODE, NVL(B.INSTOCKSTATUS, 0) INSTOCKSTATUS, NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS, NVL(B.PACKAGESTATUS, 0) PACKAGESTATUS
-            //            , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
-            //        FROM T_SAL_ORDER A
-            //        INNER JOIN T_SAL_ORDERENTRY AE ON A.FID = AE.FID
-            //        INNER JOIN T_SAL_ORDERENTRY_R AR ON AE.FENTRYID = AR.FENTRYID
-            //        INNER JOIN C##BARCODE2.PM_BARCODE B ON AE.FENTRYID = B.KDORDERFENTRYID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY CE ON A.FID = CE.ORDERINTERID
-            //        LEFT JOIN C##BARCODE2.PM_SENDPLAN C ON CE.FINTERID = C.FINTERID
-            //        LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
-            //        LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
-            //        WHERE B.INSTOCKSTATUS = 1 AND B.UTSTOCKSTATUS = 0 AND A.F_PAEZ_SINGLESHIPMENT = 0 AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND (C.FBILLNO IS NULL OR C.FBILLNO = ' ') AND A.FCUSTID = " + FCustid + " AND A.F_PAEZ_HEADLOCADDRESS = '" + FAddress + "'";
-
-            //        dt.Columns.Add("订单号");
-            //        dt.Columns.Add("BARCODE");
-            //        dt.Columns.Add("入库状态");
-            //        dt.Columns.Add("出库状态");
-            //        dt.Columns.Add("装箱状态");
-
-            //        dt.Columns.Add("商品名");
-            //        dt.Columns.Add("颜色");
-            //        OrlConn.Open();
-            //        OracleCommand cmd = OrlConn.CreateCommand();
-            //        cmd.CommandText = strSQL;
-            //        using (OracleDataReader rdr = cmd.ExecuteReader())
-            //        {
-            //            while (rdr.Read())
-            //            {
-            //                dr = dt.NewRow();
-            //                dr["订单号"] = rdr.GetString(0);
-            //                dr["BARCODE"] = rdr.GetString(1);
-            //                dr["入库状态"] = rdr.GetInt32(2) == 1 ? "是" : "否";
-            //                dr["出库状态"] = rdr.GetInt32(3) == 1 ? "是" : "否";
-            //                dr["装箱状态"] = rdr.GetInt32(4) == 1 ? "是" : "否";
-
-            //                dr["商品名"] = rdr.GetString(5);
-            //                dr["颜色"] = rdr.GetString(6);
-
-            //                dt.Rows.Add(dr);
-            //            }
-            //            rdr.Close();
-            //        }
-            //    }
-            //    else if (pType == "EXPRESS")//运输单信息
-            //    {
-            //        strSQL = @"SELECT DISTINCT '" + pString + @"' 当前运单,A.FCARRIAGENO 所有运单,LENGTH(A.FCARRIAGENO) - LENGTH(REPLACE(A.FCARRIAGENO, '/','')) + 1 数量,A.FBILLNO 出库单
-            //            , NVL(A.FAPPROVEDATE,TO_DATE('9999-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) 审核日期,A.FDOCUMENTSTATUS 数据状态, NVL(B.FCLOSESTATUS,'B') 订单关闭, NVL(CL.FNAME, ' ') 客户
-            //        FROM T_SAL_OUTSTOCK A
-            //        INNER JOIN T_SAL_OUTSTOCKENTRY_R AR ON A.FID = AR.FID
-            //        LEFT JOIN T_SAL_ORDER B ON AR.FSRCBILLNO = B.FBILLNO
-            //        LEFT JOIN T_BD_CUSTOMER_L CL ON A.FCUSTOMERID = CL.FCUSTID AND CL.FLOCALEID = 2052
-            //        WHERE INSTR(A.FCARRIAGENO,'" + pString + "') > 0";
-
-            //        OrlConn.Open();
-            //        OracleDataAdapter adp = new OracleDataAdapter(strSQL, OrlConn);
-            //        adp.Fill(dt);
-            //    }
-            //    else if (pType == "BCLIST")//根据客户分组条码
-            //    {
-            //        strSQL = @"SELECT WM_CONCAT(TO_CHAR(B.BARCODE)) BCLIST
-            //        FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-            //        INNER JOIN C##BARCODE2.PM_BARCODE B ON A.ID = B.PACKAGEID AND B.INSTOCKSTATUS = 1 AND B.PACKAGESTATUS = 1 AND B.UTSTOCKSTATUS = 0
-            //        INNER JOIN T_SAL_ORDERENTRY C ON B.KDORDERFENTRYID = C.FENTRYID
-            //        INNER JOIN T_SAL_ORDER D ON C.FID = D.FID
-            //        INNER JOIN T_BD_CUSTOMER E ON D.FCUSTID = E.FCUSTID
-            //        WHERE A.UNIQUENO IN(" + pString + @") AND A.SEALEDFLAG = 1
-            //        GROUP BY E.FNUMBER";
-
-            //        dt.Columns.Add("BCLIST");
-
-            //        OrlConn.Open();
-            //        OracleCommand cmd = OrlConn.CreateCommand();
-            //        cmd.CommandText = strSQL;
-            //        using (OracleDataReader rdr = cmd.ExecuteReader())
-            //        {
-            //            while (rdr.Read())
-            //            {
-            //                dr = dt.NewRow();
-            //                dr["BCLIST"] = rdr.GetString(0);
-            //                dt.Rows.Add(dr);
-            //            }
-            //            rdr.Close();
-            //        }
-            //    }
-            //}
-            //catch { }
-            //finally
-            //{
-            //    if (OrlConn.State == ConnectionState.Open)
-            //        OrlConn.Close();
-            //}
-            //return dt;
-
-            //20190330
-            DataTable dt;   //返回Table
-
-            dt = new DataTable();
             dt.TableName = "TableInfo";
-            if (pType == "BC")//Barcode信息
-            {
-                _SQL = @"SELECT BC.ID BARCODEID, BC.BARCODE, BC.INSTOCKSTATUS, BC.PACKAGESTATUS, BC.UTSTOCKSTATUS
-                    , NVL(BC.KDINSTOCKID, 0) INSTOCKID, BC.MANUALGEN, NVL(PK.SEALEDFLAG, 0) SEALEDFLAG, NVL(PK.UNIQUENO, ' ') UNIQUENO, A.FBILLNO MOBILLNO
-                    , NVL(MTLL.FNAME, ' ') MATERIALNAME, NVL(AE.FQTY, 0) QTY, (SELECT COUNT(1) FROM C##BARCODE2.PM_BARCODE O WHERE O.TASKID = BC.TASKID AND O.INSTOCKSTATUS = 1) FINISHQTY, AA.FSTATUS, B.FID ORDERID
-                    , BC.KDORDERFENTRYID ORDERENTRYID, NVL(B.FBILLNO, ' ') ORDERNO, NVL(BE.FSEQ, 1) FSEQ, NVL(B.FCLOSESTATUS, 'A') FCLOSESTATUS, NVL(B.FCUSTID, 0) CUSTID
-                    , NVL(CUSTL.FNAME, ' ') CUSTOMERNAME, NVL(B.F_PAEZ_HEADLOCADDRESS, ' ') ADDRESS, CASE WHEN NVL(ASSL.FDATAVALUE, ' ') LIKE '%物流%' THEN 1 ELSE 0 END ISLOGISTICS,NVL(ASSL2.FDATAVALUE, ' ') FDELIVERYMETHOD, DEPL.FNAME FWORKSHOP
-                    , NVL(B.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT, NVL(SP.FBILLNO, ' ') SHARESHIPMENT
-                FROM C##BARCODE2.PM_BARCODE BC
-                LEFT JOIN T_PRD_MOENTRY AE ON BC.KDTASKFENTRYID = AE.FENTRYID
-                LEFT JOIN T_PRD_MOENTRY_A AA ON AE.FENTRYID = AA.FENTRYID
-                LEFT JOIN T_PRD_MO A ON AE.FID = A.FID
-                LEFT JOIN T_SAL_ORDERENTRY BE ON BC.KDORDERFENTRYID = BE.FENTRYID
-                LEFT JOIN T_SAL_ORDER B ON BE.FID = B.FID
-                LEFT JOIN T_BD_DEPARTMENT DEP ON AE.FWORKSHOPID = DEP.FDEPTID
-                LEFT JOIN T_BD_DEPARTMENT_L DEPL ON DEP.FDEPTID = DEPL.FDEPTID AND DEPL.FLOCALEID = 2052
-                LEFT JOIN T_BD_CUSTOMER_L CUSTL ON B.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-                LEFT JOIN T_BD_MATERIAL_L MTLL ON BC.KDMTLID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON ASSL.FENTRYID = B.FHEADDELIVERYWAY AND ASSL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON ASSL2.FENTRYID = B.FDELIVERYMETHOD AND ASSL2.FLOCALEID = 2052
-                LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON B.FID = SPE.ORDERINTERID
-                LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-                LEFT JOIN C##BARCODE2.PM_PRODUCTPACKAGE PK ON BC.PACKAGEID = PK.ID
-                WHERE BC.BARCODE = '" + pString + "'";
-            }
-            else if (pType == "PK")//装箱信息
-            {
-                _SQL = @"SELECT PK.ID PACKAGEID, PK.UNIQUENO, NVL(A.FCUSTID, 0) CUSTID, NVL(CUSTL.FNAME, ' ') CUSTOMERNAME, NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') ADDRESS, PK.SEALEDFLAG, NVL(PK.VOLUME, 0) VOLUME, NVL(TK.FBILLNO, ' ') BILLNO
-                    , (SELECT COUNT(1) FROM C##BARCODE2.PM_BARCODE WHERE PACKAGEID = BC.PACKAGEID AND PACKAGESTATUS = 1) PACKAGEQTY, NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT, NVL(I.FBILLNO, ' ') SHARESHIPMENT
-                    , NVL(BC.BARCODE, ' ') BARCODE, NVL(A.FBILLNO, ' ') ORDERNO, NVL(CUSTL.FNAME, ' ') MATERIALNAME, NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS,NVL(ASSL.FDATAVALUE, ' ') FDELIVERYMETHOD
-                FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
-                LEFT JOIN C##BARCODE2.PM_BarCode BC ON BC.PACKAGEID = PK.ID
-                LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-                LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON ASSL.FENTRYID = A.FDELIVERYMETHOD AND ASSL.FLOCALEID = 2052
-                LEFT JOIN T_BD_CUSTOMER_L CUSTL ON A.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-                LEFT JOIN C##BARCODE2.PM_PRODUCETASK TK ON BC.TASKID = TK.ID
-                LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SP ON A.FID = SP.ORDERINTERID
-                LEFT JOIN C##BARCODE2.PM_SENDPLAN I ON SP.FINTERID = I.FINTERID
-                WHERE PK.UNIQUENO = '" + pString + "'";
-            }
-            else if (pType == "PKFIX")//装箱维护信息
-            {
-                _SQL = @"SELECT PK.ID PACKAGEID, PK.UNIQUENO, PK.SEALEDFLAG, NVL(PK.VOLUME, 0) VOLUME, BC.BARCODE, BC.KDINSTOCKID INSTOCKID
-                    , NVL(A.FBILLNO, ' ') BILLNO, NVL(CUSTL.FNAME, ' ') CUSTOMERNAME, NVL(MTLL.FNAME, ' ') MATERIALNAME, NVL(A.FCUSTID, 0) FCUSTID
-                    , PK.UTSTATUS, NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS
-                FROM  C##BARCODE2.PM_PRODUCTPACKAGE PK
-                INNER JOIN C##BARCODE2.PM_BarCode BC ON BC.PACKAGEID = PK.ID
-                LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-                LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
-                LEFT JOIN T_BD_CUSTOMER_L CUSTL ON A.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-                LEFT JOIN T_BD_MATERIAL_L MTLL ON BC.KDMTLID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
-                WHERE PK.UNIQUENO = '" + pString + "'";
-            }
-            else if (pType == "INVENTORY")//仓库列表
-            {
-                _SQL = @"SELECT 'ID:' || A.FSTOCKID || ';Number:' || A.FNUMBER FNUMBER, B.FNAME
-                FROM T_BD_STOCK A
-                INNER JOIN T_BD_STOCK_L B ON A.FSTOCKID = B.FSTOCKID AND B.FLOCALEID = 2052
-                WHERE A.FUSEORGID = " + pString + @"
-                ORDER BY A.FNUMBER";
-            }
-            else if (pType == "SALOUTSTOCK")//销售出库信息
-            {
-                _SQL = @"SELECT PK.UNIQUENO, BC.BARCODE, NVL(A.FBILLNO, ' ') FBILLNO,NVL(A.FCUSTID, 0) KDCUSTID, NVL(CUST.FNUMBER, ' ') CUSTID
-                    , NVL(CUSTL.FNAME, ' ') CUSTNAME, NVL(MTLL.FNAME, ' ') MATERIALNAME, NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') FADDRESS, NVL(PK.VOLUME, 0) VOLUME, PK.SEALEDFLAG
-                    , NVL(A.F_PAEZ_SINGLESHIPMENT, 0) SINGLESHIPMENT, NVL(SP.FBILLNO, ' ') SHARESHIPMENT, BC.PACKAGESTATUS, BC.INSTOCKSTATUS, BC.UTSTOCKSTATUS, B.FBILLNO MOBILLNO, NVL(BE.FSEQ, 0) FSEQ
-                    , NVL(A.FCLOSESTATUS, 'A') FCLOSESTATUS, NVL(ASSL.FDATAVALUE, ' ') 商品名,NVL(ASSL2.FDATAVALUE,' ') 颜色,NVL(BTL.FNAME, ' ') 销售订单类型
-                FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
-                INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID
-                LEFT JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-                LEFT JOIN T_SAL_ORDER A ON AE.FID = A.FID
-                LEFT JOIN T_PRD_MOENTRY BE ON BC.KDTASKFENTRYID = BE.FENTRYID
-                LEFT JOIN T_PRD_MO B ON BE.FID = B.FID
-                LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
-                LEFT JOIN T_BD_MATERIAL_L MTLL ON MTL.FMATERIALID = MTLL.FMATERIALID AND MTLL.FLOCALEID = 2052
-                LEFT JOIN T_BD_CUSTOMER CUST ON A.FCUSTID = CUST.FCUSTID
-                LEFT JOIN T_BD_CUSTOMER_L CUSTL ON CUST.FCUSTID = CUSTL.FCUSTID AND CUSTL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL ON MTL.F_PAEZ_TRADE = ASSL.FENTRYID AND ASSL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASSL2 ON MTL.F_PAEZ_COLOR = ASSL2.FENTRYID AND ASSL2.FLOCALEID = 2052
-                LEFT JOIN T_BAS_BILLTYPE_L BTL ON A.FBILLTYPEID = BTL.FBILLTYPEID AND BTL.FLOCALEID = 2052
-                LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
-                LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-                WHERE PK.UNIQUENO = '" + pString + "'";
-            }
-            else if (pType == "ZD")//同一销售订单的所有已封箱未出库装箱单
-            {
-                _SQL = @"SELECT NVL(D.UNIQUENO, ' ') UNIQUENO, NVL(D.SEALEDFLAG, 0) SEALEDFLAG, NVL(C.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
-                FROM T_SAL_ORDER A
-                INNER JOIN T_SAL_ORDERENTRY B ON A.FID = B.FID
-                INNER JOIN C##BARCODE2.PM_BARCODE C ON B.FENTRYID = C.KDORDERFENTRYID
-                INNER JOIN C##BARCODE2.PM_PRODUCTPACKAGE D ON C.PACKAGEID = D.ID
-                WHERE D.SEALEDFLAG = 1 AND C.UTSTOCKSTATUS = 0 AND A.FBILLNO = '" + pString + @"'
-                GROUP BY D.UNIQUENO, D.SEALEDFLAG, C.UTSTOCKSTATUS";
-            }
-            else if (pType == "ZDBC")//同一销售订单的所有产品条码
-            {
-                _SQL = @"SELECT A.FBILLNO 订单号,NVL(C.BARCODE, ' ') BARCODE,CASE WHEN NVL(C.INSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 入库状态,CASE WHEN NVL(C.UTSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 出库状态,CASE WHEN NVL(C.PACKAGESTATUS, 0) = 0 THEN '否' ELSE '是' END 装箱状态
-                    , (SELECT SUM(D.FQTY) FROM T_SAL_ORDERENTRY D INNER JOIN T_SAL_ORDER E ON D.FID = E.FID INNER JOIN T_BD_MATERIAL F ON D.FMATERIALID = F.FMATERIALID AND F.FNUMBER LIKE '3%' WHERE E.FBILLNO = A.FBILLNO) ALLQTY
-                    , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
-                FROM T_SAL_ORDER A
-                INNER JOIN T_SAL_ORDERENTRY B ON A.FID = B.FID
-                INNER JOIN C##BARCODE2.PM_BARCODE C ON B.FENTRYID = C.KDORDERFENTRYID
-                LEFT JOIN T_BD_MATERIAL MTL ON B.FMATERIALID = MTL.FMATERIALID
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
-                WHERE A.FBILLNO = '" + pString + @"'";
-            }
-            else if (pType == "PD")//同一拼单的所有已封箱未出库装箱单
-            {
-                _SQL = @"SELECT A.UNIQUENO, A.SEALEDFLAG, NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
-                FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-                INNER JOIN C##BARCODE2.PM_BARCODE B ON B.PACKAGEID = A.ID
-                INNER JOIN T_SAL_ORDERENTRY C ON C.FENTRYID = B.KDORDERFENTRYID
-                INNER JOIN T_SAL_ORDER D ON C.FID = D.FID
-                LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY E ON D.FID = E.ORDERINTERID
-                LEFT JOIN C##BARCODE2.PM_SENDPLAN F ON E.FINTERID = F.FINTERID
-                WHERE A.SEALEDFLAG = 1 AND B.UTSTOCKSTATUS = 0 AND F.FBILLNO = '" + pString + @"'
-                GROUP BY A.UNIQUENO, A.SEALEDFLAG, B.UTSTOCKSTATUS";
-            }
-            else if (pType == "PDBC")//同一拼单的所有产品条码
-            {
-                _SQL = @"SELECT A.订单号,NVL(E.BARCODE, ' ') BARCODE,CASE WHEN NVL(E.INSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 入库状态,CASE WHEN NVL(E.UTSTOCKSTATUS, 0) = 0 THEN '否' ELSE '是' END 出库状态,CASE WHEN NVL(E.PACKAGESTATUS, 0) = 0 THEN '否' ELSE '是' END 装箱状态
-                    , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
-                FROM C##BARCODE2.PM_SENDPLAN A
-                INNER JOIN C##BARCODE2.PM_SENDPLANENTRY B ON A.FINTERID = B.FINTERID
-                INNER JOIN T_SAL_ORDER C ON B.ORDERINTERID = C.FID
-                INNER JOIN T_SAL_ORDERENTRY D ON C.FID = D.FID
-                INNER JOIN C##BARCODE2.PM_BARCODE E ON D.FENTRYID = E.KDORDERFENTRYID
-                LEFT JOIN T_BD_MATERIAL MTL ON D.FMATERIALID = MTL.FMATERIALID
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
-                WHERE A.FBILLNO = '" + pString + @"'";
-            }
-            else if (pType == "OT")//非整非拼单同一客户的所有已入库未出库装箱单
-            {
-                string FCustid = string.Empty;
-                string FAddress = string.Empty;
-                FCustid = pString.Substring(0, pString.IndexOf("|"));
-                FAddress = pString.Substring(pString.IndexOf("|") + 1, pString.Length - pString.IndexOf("|") - 1);
-                _SQL = @"SELECT DISTINCT A.UNIQUENO, A.SEALEDFLAG, NVL(B.UTSTOCKSTATUS, 0) UTSTOCKSTATUS
-                FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-                INNER JOIN C##BARCODE2.PM_BARCODE B ON B.PACKAGEID = A.ID
-                INNER JOIN T_SAL_ORDERENTRY CE ON CE.FENTRYID = B.KDORDERFENTRYID
-                INNER JOIN T_SAL_ORDER C ON CE.FID = C.FID
-                LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON C.FID = DE.ORDERINTERID
-                LEFT JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
-                WHERE B.INSTOCKSTATUS = 1 AND B.UTSTOCKSTATUS = 0 AND C.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND C.FCUSTID = " + FCustid + " AND C.F_PAEZ_HEADLOCADDRESS = '" + FAddress + "'";
-            }
-            else if (pType == "OTBC")//非整非拼单同一客户的所有已入库未出库产品条码
-            {
-                string FCustid = string.Empty;
-                string FAddress = string.Empty;
-                FCustid = pString.Substring(0, pString.IndexOf("|"));
-                FAddress = pString.Substring(pString.IndexOf("|") + 1, pString.Length - pString.IndexOf("|") - 1);
-                _SQL = @"SELECT A.FBILLNO 订单号,NVL(B.BARCODE, ' ') BARCODE,'是' 入库状态,'否' 出库状态,CASE WHEN NVL(B.PACKAGESTATUS, 0) = 0 THEN '否' ELSE '是' END 装箱状态
-                    , NVL(ASL.FDATAVALUE, ' ') 商品名,NVL(ASL2.FDATAVALUE,' ') 颜色
-                FROM T_SAL_ORDER A
-                INNER JOIN T_SAL_ORDERENTRY AE ON A.FID = AE.FID
-                INNER JOIN T_SAL_ORDERENTRY_R AR ON AE.FENTRYID = AR.FENTRYID
-                INNER JOIN C##BARCODE2.PM_BARCODE B ON AE.FENTRYID = B.KDORDERFENTRYID
-                LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY CE ON A.FID = CE.ORDERINTERID
-                LEFT JOIN C##BARCODE2.PM_SENDPLAN C ON CE.FINTERID = C.FINTERID
-                LEFT JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL ON MTL.F_PAEZ_TRADE = ASL.FENTRYID AND ASL.FLOCALEID = 2052
-                LEFT JOIN T_BAS_ASSISTANTDATAENTRY_L ASL2 ON MTL.F_PAEZ_COLOR = ASL2.FENTRYID AND ASL2.FLOCALEID = 2052
-                WHERE B.INSTOCKSTATUS = 1 AND B.UTSTOCKSTATUS = 0 AND A.F_PAEZ_SINGLESHIPMENT = 0 AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND (C.FBILLNO IS NULL OR C.FBILLNO = ' ') AND A.FCUSTID = " + FCustid + " AND A.F_PAEZ_HEADLOCADDRESS = '" + FAddress + "'";
-            }
-            else if (pType == "EXPRESS")//运输单信息
-            {
-                _SQL = @"SELECT DISTINCT '" + pString + @"' 当前运单,A.FCARRIAGENO 所有运单,LENGTH(A.FCARRIAGENO) - LENGTH(REPLACE(A.FCARRIAGENO, '/','')) + 1 数量,A.FBILLNO 出库单
-                    , NVL(A.FAPPROVEDATE,TO_DATE('9999-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')) 审核日期,A.FDOCUMENTSTATUS 数据状态, NVL(B.FCLOSESTATUS,'B') 订单关闭, NVL(CL.FNAME, ' ') 客户
-                FROM T_SAL_OUTSTOCK A
-                INNER JOIN T_SAL_OUTSTOCKENTRY_R AR ON A.FID = AR.FID
-                LEFT JOIN T_SAL_ORDER B ON AR.FSRCBILLNO = B.FBILLNO
-                LEFT JOIN T_BD_CUSTOMER_L CL ON A.FCUSTOMERID = CL.FCUSTID AND CL.FLOCALEID = 2052
-                WHERE INSTR(A.FCARRIAGENO,'" + pString + "') > 0";
-            }
-            else if (pType == "BCLIST")//根据客户分组条码
-            {
-                _SQL = @"SELECT WM_CONCAT(TO_CHAR(B.BARCODE)) BCLIST
-                FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-                INNER JOIN C##BARCODE2.PM_BARCODE B ON A.ID = B.PACKAGEID AND B.INSTOCKSTATUS = 1 AND B.PACKAGESTATUS = 1 AND B.UTSTOCKSTATUS = 0
-                INNER JOIN T_SAL_ORDERENTRY C ON B.KDORDERFENTRYID = C.FENTRYID
-                INNER JOIN T_SAL_ORDER D ON C.FID = D.FID
-                INNER JOIN T_BD_CUSTOMER E ON D.FCUSTID = E.FCUSTID
-                WHERE A.UNIQUENO IN(" + pString + @") AND A.SEALEDFLAG = 1
-                GROUP BY E.FNUMBER";
-            }
-
-            dt = ORAHelper.ExecuteTable(_SQL);
             return dt;
         }
         #endregion 
@@ -683,74 +370,6 @@ namespace PDAWS.FactorySQL
         /// <returns></returns>
         public static object ExecuteScalar(string pString, string pType, int pIndex)
         {
-            //OracleConnection OrlConn = new OracleConnection(ConnectionString);//Oracle 数据库实例
-            //string strSQL = string.Empty;//SQL语句
-            //object ReturnOB = null;
-            //if (pType == "MAXBN")//获取箱号最大值
-            //{
-            //    switch (pIndex)
-            //    {
-            //        case 1://整单
-            //            strSQL = @"SELECT NVL(MAX(NVL(A.BOXNUMBER, 0)), 0) MAXBOXNUMBER
-            //            FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-            //            INNER JOIN C##BARCODE2.PM_BARCODE B ON A.ID = B.PACKAGEID
-            //            INNER JOIN T_SAL_ORDERENTRY CE ON B.KDORDERFENTRYID = CE.FENTRYID
-            //            INNER JOIN T_SAL_ORDER C ON C.FID = CE.FID
-            //            WHERE C.FBILLNO = '" + pString + "'";
-            //            break;
-            //        case 2://拼单
-            //            strSQL = @"SELECT NVL(MAX(NVL(A.BOXNUMBER, 0)), 0) MAXBOXNUMBER
-            //            FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-            //            INNER JOIN C##BARCODE2.PM_BARCODE B ON A.ID = B.PACKAGEID
-            //            INNER JOIN T_SAL_ORDERENTRY CE ON B.KDORDERFENTRYID = CE.FENTRYID
-            //            INNER JOIN T_SAL_ORDER C ON C.FID = CE.FID
-            //            LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON C.FID = DE.ORDERINTERID
-            //            LEFT JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
-            //            WHERE D.FBILLNO = '" + pString + "'";
-            //            break;
-            //        case 3://非整非拼
-            //            strSQL = @"SELECT NVL(MAX(NVL(A.BOXNUMBER, 0)), 0) MAXBOXNUMBER
-            //            FROM C##BARCODE2.PM_PRODUCTPACKAGE A
-            //            INNER JOIN C##BARCODE2.PM_BARCODE B ON A.ID = B.PACKAGEID
-            //            INNER JOIN T_SAL_ORDERENTRY CE ON B.KDORDERFENTRYID = CE.FENTRYID
-            //            INNER JOIN T_SAL_ORDERENTRY_R CR ON CE.FENTRYID = CR.FENTRYID
-            //            INNER JOIN T_SAL_ORDER C ON C.FID = CE.FID
-            //            LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON C.FID = DE.ORDERINTERID
-            //            LEFT JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
-            //            WHERE B.INSTOCKSTATUS = 1   AND C.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND CR.FCANOUTQTY > 0 AND C.FCUSTID = " + pString;
-            //            break;
-            //        default:
-            //            strSQL = "SELECT 0 FROM DUAL";
-            //            break;
-            //    }
-            //}
-            //else if (pType == "OBJECT")
-            //{
-            //    switch (pIndex)
-            //    {
-            //        case 1://求PDA日志中指定运单号的记录数
-            //            strSQL = @"SELECT COUNT(*) FROM DM_EXCEPTIONRECORD WHERE FNUMBER = '" + pString + "'";
-            //            break;
-            //        default:
-            //            strSQL = "SELECT 0 FROM DUAL";
-            //            break;
-            //    }
-            //}
-            //try
-            //{
-            //    OrlConn.Open();
-            //    OracleCommand cmd = OrlConn.CreateCommand();
-            //    cmd.CommandText = strSQL;
-            //    ReturnOB = cmd.ExecuteScalar();
-            //}
-            //catch { }
-            //finally
-            //{
-            //    OrlConn.Close();
-            //}
-            //return ReturnOB;
-
-            //20190330
             if (pType == "MAXBN")//获取箱号最大值
             {
                 switch (pIndex)
@@ -785,7 +404,7 @@ namespace PDAWS.FactorySQL
                         WHERE B.INSTOCKSTATUS = 1   AND C.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND CR.FCANOUTQTY > 0 AND C.FCUSTID = " + pString;
                         break;
                     default:
-                        _SQL = "SELECT 0 FROM DUAL";
+                        _SQL = string.Empty;
                         break;
                 }
             }
@@ -797,14 +416,14 @@ namespace PDAWS.FactorySQL
                         _SQL = @"SELECT COUNT(*) FROM DM_EXCEPTIONRECORD WHERE FNUMBER = '" + pString + "'";
                         break;
                     default:
-                        _SQL = "SELECT 0 FROM DUAL";
+                        _SQL = string.Empty;
                         break;
                 }
             }
-            else
-                return null;
 
-            return ORAHelper.ExecuteScalar(_SQL);
+            if (!_SQL.Equals(string.Empty))
+                return ORAHelper.ExecuteScalar(_SQL);
+            return null;
         }
         #endregion
 
@@ -1304,537 +923,21 @@ namespace PDAWS.FactorySQL
         /// <returns></returns>
         public static string SalOutStock(string pBarcodeList)
         {
-            //DataTable dt = null;
-            //DataRow dr = null;
-            //K3CloudApiClient client = null;
-            //OracleConnection OrlConn = new OracleConnection(ConnectionString);
-            //string strSalOutBillNO = string.Empty;
-
-            ////根据条码列表查找主产品信息
-            //if (pBarcodeList.Length == 0) return "箱号不正确";
-            //string strSQL = @"SELECT A.FBILLNO, CUST.FNUMBER CUSTID, NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') FADDRESS, ORG.FNUMBER SALEORGID, ORG2.FNUMBER STOCKORGID
-            //  ,CUR.FNUMBER FSETTLECURRID, NVL(CUR2.FNUMBER, ' ') LOCALCURRID, MTL.FNUMBER MATERIALID, UNT.FNUMBER FUNITID, NVL(STK.FNUMBER, 'HWL16') STOCKID
-            //  ,NVL(SP.FBILLNO, ' ') SHARESHIPMENT, AE.FID, AE.FENTRYID, AF.FPRICE, AF.FTAXPRICE, MAX(AR.FREMAINOUTQTY) FREMAINOUTQTY, COUNT(BC.BARCODE) FREALQTY
-            //  ,NVL(ASS.FNUMBER, ' ') FDELIVERYMETHOD, NVL(ASS2.FNUMBER, ' ') FHEADDELIVERYWAY, A.F_PAEZ_CONTACTS, A.F_PAEZ_CONTACTNUMBER, A.FNOTE
-            //  ,AE.FNOTE FENTRYNOTE, A.F_PAEZ_SINGLESHIPMENT, AE.PRODUCTIONSEQ, DEP.FNUMBER FWORKSHOPID, AE.F_PAEZ_SALEDATE
-            //  ,CASE WHEN BT.FNUMBER IN('XSDD01_SYS','XSDD03_SYS','XSDD04_SYS','XSDD05_SYS') THEN 'XSCKD01_SYS' WHEN BT.FNUMBER = 'XSDD02_SYS' THEN 'XSCKD02_SYS' WHEN BT.FNUMBER = 'XSDD07_SYS' THEN 'XSCKD04_SYS' WHEN BT.FNUMBER = 'XSDD09_SYS' THEN 'XSCKD06_SYS' WHEN BT.FNUMBER = 'XSDD08_SYS' THEN 'XSCKD05_SYS' ELSE 'XSCKD01_SYS' END FBILLTYPE
-            //FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
-            //INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID AND BC.INSTOCKSTATUS = 1 AND BC.PACKAGESTATUS = 1 AND BC.UTSTOCKSTATUS = 0
-            //INNER JOIN C##BARCODE2.PM_PRODUCETASK TK ON BC.TASKID = TK.ID
-            //INNER JOIN T_SAL_ORDERENTRY AE ON BC.KDORDERFENTRYID = AE.FENTRYID
-            //INNER JOIN T_SAL_ORDERENTRY_F AF ON AE.FENTRYID = AF.FENTRYID
-            //INNER JOIN T_SAL_ORDERENTRY_R AR ON AF.FENTRYID = AR.FENTRYID
-            //INNER JOIN T_SAL_ORDER A ON AE.FID = A.FID
-            //LEFT JOIN T_SAL_ORDERFIN AFI ON A.FID = AFI.FID
-            //LEFT JOIN T_BD_CURRENCY CUR ON AFI.FSETTLECURRID = CUR.FCURRENCYID
-            //LEFT JOIN T_BD_CURRENCY CUR2 ON AFI.FLOCALCURRID = CUR2.FCURRENCYID
-            //INNER JOIN T_BD_CUSTOMER CUST ON A.FCUSTID = CUST.FCUSTID
-            //INNER JOIN T_BD_DEPARTMENT DEP ON AE.F_PRODUCTDEPARTMENT = DEP.FDEPTID
-            //INNER JOIN T_BAS_BILLTYPE BT ON A.FBILLTYPEID = BT.FBILLTYPEID
-            //INNER JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
-            //INNER JOIN T_BD_UNIT UNT ON AE.FUNITID = UNT.FUNITID
-            //INNER JOIN T_ORG_ORGANIZATIONS ORG ON A.FSALEORGID = ORG.FORGID
-            //INNER JOIN T_ORG_ORGANIZATIONS ORG2 ON AE.FSTOCKORGID = ORG2.FORGID
-            //LEFT JOIN T_BD_STOCK STK ON BC.KDINWAREHOUSEID = STK.FSTOCKID
-            //LEFT JOIN T_BAS_ASSISTANTDATAENTRY ASS ON A.FDELIVERYMETHOD = ASS.FENTRYID
-            //LEFT JOIN T_BAS_ASSISTANTDATAENTRY ASS2 ON A.FHEADDELIVERYWAY = ASS2.FENTRYID
-            //LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
-            //LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-            //WHERE BC.BARCODE IN(" + pBarcodeList + @") AND PK.SEALEDFLAG = 1 AND AE.FMRPCLOSESTATUS = 'A' AND AR.FREMAINOUTQTY > 0
-            //GROUP BY CUST.FNUMBER,A.F_PAEZ_HEADLOCADDRESS,ORG.FNUMBER,ORG2.FNUMBER,CUR.FNUMBER,CUR2.FNUMBER,MTL.FNUMBER,UNT.FNUMBER,STK.FNUMBER,SP.FBILLNO,A.FBILLNO,AE.FID,AE.FENTRYID,AF.FPRICE,AF.FTAXPRICE,ASS.FNUMBER,ASS2.FNUMBER,A.F_PAEZ_CONTACTS,A.F_PAEZ_CONTACTNUMBER,A.FNOTE,AE.FNOTE,A.F_PAEZ_SINGLESHIPMENT,AE.PRODUCTIONSEQ,DEP.FNUMBER,AE.F_PAEZ_SALEDATE,BT.FNUMBER
-            //ORDER BY CUST.FNUMBER";
-
-            //dt = new DataTable();
-            //dt.Columns.Add("FBILLNO");
-            //dt.Columns.Add("CUSTID");
-            //dt.Columns.Add("FADDRESS");
-            //dt.Columns.Add("SALEORGID");
-            //dt.Columns.Add("STOCKORGID");
-
-            //dt.Columns.Add("FSETTLECURRID");
-            //dt.Columns.Add("LOCALCURRID");
-            //dt.Columns.Add("MATERIALID");
-            //dt.Columns.Add("FUNITID");
-            //dt.Columns.Add("STOCKID");
-
-            //dt.Columns.Add("SHARESHIPMENT");
-            //dt.Columns.Add("FID");
-            //dt.Columns.Add("FENTRYID");
-            //dt.Columns.Add("FPRICE");
-            //dt.Columns.Add("FTAXPRICE");
-
-            //dt.Columns.Add("FREMAINOUTQTY");
-            //dt.Columns.Add("FREALQTY");
-
-            //dt.Columns.Add("FDELIVERYMETHOD");
-            //dt.Columns.Add("FHEADDELIVERYWAY");
-            //dt.Columns.Add("F_PAEZ_CONTACTS");
-            //dt.Columns.Add("F_PAEZ_CONTACTNUMBER");
-            //dt.Columns.Add("FNOTE");
-
-            //dt.Columns.Add("FENTRYNOTE");
-            //dt.Columns.Add("F_PAEZ_SINGLESHIPMENT");
-            //dt.Columns.Add("PRODUCTIONSEQ");
-            //dt.Columns.Add("FWORKSHOPID");
-            //dt.Columns.Add("F_PAEZ_SALEDATE");
-
-            //dt.Columns.Add("BILLTYPEID");
-
-            //dt.TableName = "OutsotckInfo";
-            //try
-            //{
-            //    OrlConn.Open();
-            //    OracleCommand cmd = OrlConn.CreateCommand();
-            //    cmd.CommandText = strSQL;
-            //    using (OracleDataReader rdr = cmd.ExecuteReader())
-            //    {
-            //        while (rdr.Read())
-            //        {
-            //            dr = dt.NewRow();
-            //            dr["FBILLNO"] = rdr.GetString(0);
-            //            dr["CUSTID"] = rdr.GetString(1);
-            //            dr["FADDRESS"] = rdr.GetString(2);
-            //            dr["SALEORGID"] = rdr.GetString(3);
-            //            dr["STOCKORGID"] = rdr.GetString(4);
-
-            //            dr["FSETTLECURRID"] = rdr.GetString(5);
-            //            dr["LOCALCURRID"] = rdr.GetString(6);
-            //            dr["MATERIALID"] = rdr.GetString(7);
-            //            dr["FUNITID"] = rdr.GetString(8);
-            //            dr["STOCKID"] = rdr.GetString(9);
-
-            //            dr["SHARESHIPMENT"] = rdr.GetString(10);
-            //            dr["FID"] = rdr.GetInt32(11);
-            //            dr["FENTRYID"] = rdr.GetInt32(12);
-            //            dr["FPRICE"] = rdr.GetDecimal(13);
-            //            dr["FTAXPRICE"] = rdr.GetDecimal(14);
-
-            //            dr["FREMAINOUTQTY"] = rdr.GetDecimal(15);
-            //            dr["FREALQTY"] = rdr.GetDecimal(16);
-
-            //            dr["FDELIVERYMETHOD"] = rdr.GetString(17);
-            //            dr["FHEADDELIVERYWAY"] = rdr.GetString(18);
-            //            dr["F_PAEZ_CONTACTS"] = rdr.GetString(19);
-            //            dr["F_PAEZ_CONTACTNUMBER"] = rdr.GetString(20);
-            //            dr["FNOTE"] = rdr.GetString(21);
-
-            //            dr["FENTRYNOTE"] = rdr.GetString(22);
-            //            dr["F_PAEZ_SINGLESHIPMENT"] = rdr.GetString(23) == "0" ? "false" : "true";
-            //            dr["PRODUCTIONSEQ"] = rdr.GetString(24);
-            //            dr["FWORKSHOPID"] = rdr.GetString(25);
-            //            dr["F_PAEZ_SALEDATE"] = rdr.GetDateTime(26);
-
-            //            dr["BILLTYPEID"] = rdr.GetString(27);
-
-            //            dt.Rows.Add(dr);
-            //        }
-            //        rdr.Close();
-            //    }
-            //}
-            //catch (Exception ex)
-            //{
-            //    return "查询数据库错误:" + ex.Message;
-            //}
-            //finally
-            //{
-            //    OrlConn.Close();
-            //}
-            //if (dt.Rows.Count < 1) return "在数据库找不到数据";//在数据库找不到数据
-
-            ////添加辅料（如车标等没有条码的产品）
-            //bool bIsMPRD = false;//判断物料是否主产品
-            //string strRemove = string.Empty;//拼接辅料出库字符串
-            //string strSQL2 = string.Empty;//携带辅料明细出库
-            //string strSQL3 = string.Empty;//不需要携带出库的物料编码
-            //DataTable dt2 = new DataTable();//获取辅料明细信息
-            //DataTable dt3 = new DataTable();//获取不需携带出库物料编码
-
-            //strSQL3 = "SELECT FNUMBER FROM DM_NUMBERMATCH WHERE FTYPE = 'UTMTL' AND ISUSE = '1' AND ISDELETE = '0' AND ISMATCH = '1'";
-            //try
-            //{
-            //    OrlConn.Open();
-            //    OracleCommand cmd = OrlConn.CreateCommand();
-            //    cmd.CommandText = strSQL3;
-            //    OracleDataAdapter adp = new OracleDataAdapter(cmd.CommandText, OrlConn);
-            //    adp.Fill(dt3);
-            //}
-            //catch
-            //{
-            //    //strRemove = "B.FNUMBER NOT LIKE '311%' AND B.FNUMBER NOT LIKE '312%' AND B.FNUMBER NOT LIKE '313%' AND B.FNUMBER NOT LIKE '314010807%' AND B.FNUMBER NOT LIKE '3140110%' AND B.FNUMBER NOT LIKE '315%' AND B.FNUMBER NOT LIKE '40101%' AND B.FNUMBER NOT LIKE '40104%' AND B.FNUMBER NOT LIKE '40201%' AND B.FNUMBER NOT LIKE '403%' AND B.FNUMBER NOT LIKE '1801%' AND B.FNUMBER NOT LIKE '1802%'";
-            //}
-            //finally
-            //{
-            //    OrlConn.Close();
-            //}
-
-            //if (dt3.Rows.Count > 0)
-            //{
-            //    strRemove += "(";
-            //    for (int i = 0; i < dt3.Rows.Count; i++)
-            //    {
-            //        if (i != 0) strRemove += " OR ";
-            //        strRemove += " B.FNUMBER LIKE '" + dt3.Rows[i]["FNUMBER"].ToString() + "%' ";
-            //    }
-            //    strRemove += ")";
-            //}
-            //else
-            //    strRemove = "B.FNUMBER NOT LIKE '311%' AND B.FNUMBER NOT LIKE '312%' AND B.FNUMBER NOT LIKE '313%' AND B.FNUMBER NOT LIKE '314010807%' AND B.FNUMBER NOT LIKE '3140110%' AND B.FNUMBER NOT LIKE '315%' AND B.FNUMBER NOT LIKE '40101%' AND B.FNUMBER NOT LIKE '40104%' AND B.FNUMBER NOT LIKE '40201%' AND B.FNUMBER NOT LIKE '403%' AND B.FNUMBER NOT LIKE '1801%' AND B.FNUMBER NOT LIKE '1802%'";
-            //if (dt.Rows[0]["F_PAEZ_SINGLESHIPMENT"].ToString() == "true")//取整单发货订单的辅料
-            //{
-            //    strSQL2 = @"SELECT A.FID, AE.FENTRYID, A.FBILLNO, F.FNUMBER FCUSTID
-            //                   , D.FNUMBER SALEORGID, E.FNUMBER STOCKORGID, AE.FQTY, A.FNOTE, AE.FNOTE FENTRYNOTE
-            //                   , AE.PRODUCTIONSEQ, B.FNUMBER MATERIALID, C.FNUMBER FUNITID
-            //            FROM T_SAL_ORDER A
-            //            INNER JOIN T_SAL_ORDERENTRY AE ON A.FID = AE.FID
-            //            INNER JOIN T_SAL_ORDERENTRY_R AR ON AE.FENTRYID = AR.FENTRYID
-            //            INNER JOIN T_BD_MATERIAL B ON AE.FMATERIALID = B.FMATERIALID
-            //            INNER JOIN T_BD_UNIT C ON AE.FUNITID = C.FUNITID
-            //            INNER JOIN T_ORG_ORGANIZATIONS D ON A.FSALEORGID = D.FORGID
-            //            INNER JOIN T_ORG_ORGANIZATIONS E ON AE.FSTOCKORGID = E.FORGID
-            //            INNER JOIN T_BD_CUSTOMER F ON A.FCUSTID = F.FCUSTID
-            //            WHERE A.F_PAEZ_SINGLESHIPMENT = 1 AND " + strRemove + " AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND A.FBILLNO = '" + dt.Rows[0]["FBILLNO"].ToString() + "'";
-            //}
-            //else if (dt.Rows[0]["SHARESHIPMENT"].ToString().Trim().Length > 0)//取拼单发货订单的辅料
-            //{
-            //    strSQL2 = @"SELECT A.FID, AE.FENTRYID, A.FBILLNO, G.FNUMBER FCUSTID
-            //                   , E.FNUMBER SALEORGID, F.FNUMBER STOCKORGID, AE.FQTY, A.FNOTE, AE.FNOTE FENTRYNOTE
-            //                   , AE.PRODUCTIONSEQ, B.FNUMBER MATERIALID, C.FNUMBER FUNITID
-            //            FROM T_SAL_ORDER A
-            //            INNER JOIN T_SAL_ORDERENTRY AE ON A.FID = AE.FID
-            //            INNER JOIN T_SAL_ORDERENTRY_R AR ON AE.FENTRYID = AR.FENTRYID
-            //            INNER JOIN T_BD_MATERIAL B ON AE.FMATERIALID = B.FMATERIALID
-            //            INNER JOIN T_BD_UNIT C ON AE.FUNITID = C.FUNITID
-            //            INNER JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON A.FID = DE.ORDERINTERID
-            //            INNER JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
-            //            INNER JOIN T_ORG_ORGANIZATIONS E ON A.FSALEORGID = E.FORGID
-            //            INNER JOIN T_ORG_ORGANIZATIONS F ON AE.FSTOCKORGID = F.FORGID
-            //            INNER JOIN T_BD_CUSTOMER G ON A.FCUSTID = G.FCUSTID
-            //            WHERE A.F_PAEZ_SINGLESHIPMENT = 0 AND " + strRemove + " AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND D.FBILLNO = '" + dt.Rows[0]["SHARESHIPMENT"].ToString() + "' AND A.F_PAEZ_HEADLOCADDRESS = '" + dt.Rows[0]["FADDRESS"].ToString() + "'";
-            //}
-            //else//取非整非拼单类订单的辅料
-            //{
-            //    //只取当前订单内的辅料
-            //    string strOrderBillNos = string.Empty;//当前销售订单列表
-            //    for (int j = 0; j < dt.Rows.Count; j++)
-            //    {
-            //        if (j == 0) strOrderBillNos = "'" + dt.Rows[0]["FBILLNO"].ToString() + "'";
-            //        else if (!strOrderBillNos.Contains(dt.Rows[j]["FBILLNO"].ToString())) strOrderBillNos += ",'" + dt.Rows[j]["FBILLNO"].ToString() + "'";
-            //    }
-            //    strSQL2 = @"SELECT A.FID, AE.FENTRYID, A.FBILLNO, G.FNUMBER FCUSTID
-            //                   , E.FNUMBER SALEORGID, F.FNUMBER STOCKORGID, AE.FQTY, A.FNOTE, AE.FNOTE FENTRYNOTE
-            //                   , AE.PRODUCTIONSEQ, B.FNUMBER MATERIALID, C.FNUMBER FUNITID
-            //            FROM T_SAL_ORDER A
-            //            INNER JOIN T_SAL_ORDERENTRY AE ON A.FID = AE.FID
-            //            INNER JOIN T_SAL_ORDERENTRY_R AR ON AE.FENTRYID = AR.FENTRYID
-            //            INNER JOIN T_BD_MATERIAL B ON AE.FMATERIALID = B.FMATERIALID
-            //            INNER JOIN T_BD_UNIT C ON AE.FUNITID = C.FUNITID
-            //            LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY DE ON A.FID = DE.ORDERINTERID
-            //            LEFT JOIN C##BARCODE2.PM_SENDPLAN D ON DE.FINTERID = D.FINTERID
-            //            INNER JOIN T_ORG_ORGANIZATIONS E ON A.FSALEORGID = E.FORGID
-            //            INNER JOIN T_ORG_ORGANIZATIONS F ON AE.FSTOCKORGID = F.FORGID
-            //            INNER JOIN T_BD_CUSTOMER G ON A.FCUSTID = G.FCUSTID
-            //            WHERE A.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND " + strRemove + " AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND G.FNUMBER = '" + dt.Rows[0]["CUSTID"].ToString() + "' AND A.F_PAEZ_HEADLOCADDRESS = '" + dt.Rows[0]["FADDRESS"].ToString() + "' AND A.FBILLNO IN(" + strOrderBillNos + ")";
-            //}
-            //try
-            //{
-            //    OrlConn.Open();
-            //    OracleDataAdapter adp = new OracleDataAdapter(strSQL2, OrlConn);
-            //    adp.Fill(dt2);
-            //}
-            //catch { }
-            //finally
-            //{
-            //    OrlConn.Close();
-            //}
-            //if (dt2.Rows.Count > 0)//把辅料明细信息添加到dt中
-            //{
-            //    DataRow drTmp = null;
-            //    for (int i = 0; i < dt2.Rows.Count; i++)
-            //    {
-            //        bIsMPRD = false;
-            //        drTmp = dt.NewRow();
-            //        drTmp["FBILLNO"] = dt2.Rows[i]["FBILLNO"].ToString();
-            //        drTmp["CUSTID"] = dt2.Rows[i]["FCUSTID"].ToString();
-            //        drTmp["FADDRESS"] = dt.Rows[0]["FADDRESS"].ToString();
-            //        drTmp["SALEORGID"] = dt2.Rows[i]["SALEORGID"].ToString();
-            //        drTmp["STOCKORGID"] = dt2.Rows[i]["STOCKORGID"].ToString();
-
-            //        drTmp["FSETTLECURRID"] = dt.Rows[0]["FSETTLECURRID"].ToString();
-            //        drTmp["LOCALCURRID"] = dt.Rows[0]["LOCALCURRID"].ToString();
-            //        drTmp["MATERIALID"] = dt2.Rows[i]["MATERIALID"].ToString();
-            //        drTmp["FUNITID"] = dt2.Rows[i]["FUNITID"].ToString();
-            //        drTmp["STOCKID"] = dt.Rows[0]["STOCKID"].ToString();
-
-            //        drTmp["SHARESHIPMENT"] = dt.Rows[0]["SHARESHIPMENT"].ToString();
-            //        drTmp["FID"] = dt2.Rows[i]["FID"].ToString();
-            //        drTmp["FENTRYID"] = dt2.Rows[i]["FENTRYID"].ToString();
-            //        drTmp["FPRICE"] = "0";
-            //        drTmp["FTAXPRICE"] = "0";
-
-            //        drTmp["FREMAINOUTQTY"] = "0";
-            //        drTmp["FREALQTY"] = dt2.Rows[i]["FQTY"].ToString();
-
-            //        drTmp["FDELIVERYMETHOD"] = dt.Rows[0]["FDELIVERYMETHOD"].ToString();
-            //        drTmp["FHEADDELIVERYWAY"] = dt.Rows[0]["FHEADDELIVERYWAY"].ToString();
-            //        drTmp["F_PAEZ_CONTACTS"] = dt.Rows[0]["F_PAEZ_CONTACTS"].ToString();
-            //        drTmp["F_PAEZ_CONTACTNUMBER"] = dt.Rows[0]["F_PAEZ_CONTACTNUMBER"].ToString();
-            //        drTmp["FNOTE"] = dt2.Rows[i]["FNOTE"].ToString();
-
-            //        drTmp["FENTRYNOTE"] = dt2.Rows[i]["FENTRYNOTE"].ToString();
-            //        drTmp["F_PAEZ_SINGLESHIPMENT"] = dt.Rows[0]["F_PAEZ_SINGLESHIPMENT"].ToString();
-            //        drTmp["PRODUCTIONSEQ"] = dt2.Rows[i]["PRODUCTIONSEQ"].ToString();
-            //        drTmp["FWORKSHOPID"] = dt.Rows[0]["FWORKSHOPID"].ToString();
-            //        drTmp["F_PAEZ_SALEDATE"] = dt.Rows[0]["F_PAEZ_SALEDATE"].ToString();
-
-            //        drTmp["BILLTYPEID"] = dt.Rows[0]["BILLTYPEID"].ToString();
-
-            //        for (int j = 0; j < dt.Rows.Count; j++)
-            //        {
-            //            if (dt2.Rows[i]["MATERIALID"].ToString() == dt.Rows[j]["MATERIALID"].ToString())
-            //            {
-            //                bIsMPRD = true;
-            //                break;
-            //            }
-            //        }
-            //        //物料不是主产品时添加到辅料信息里
-            //        if (!bIsMPRD)
-            //            dt.Rows.Add(drTmp);
-            //    }
-            //}
-
-            //client = new K3CloudApiClient(_URL);
-            //var bLogin = client.Login(_ZTID, _UserName, _PWD, 2052);
-            //if (bLogin)
-            //{
-            //    JObject jsonRoot = new JObject();
-            //    jsonRoot.Add("Creator", "PDA");
-            //    jsonRoot.Add("NeedUpDateFields", new JArray(""));
-
-            //    JObject model = new JObject();
-            //    jsonRoot.Add("Model", model);
-            //    model.Add("FID", 0);
-
-            //    JObject basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["BILLTYPEID"].ToString());
-            //    model.Add("FBillTypeID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["SALEORGID"].ToString());
-            //    model.Add("FSaleOrgId", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["SALEORGID"].ToString());
-            //    model.Add("FSettleOrgID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["STOCKORGID"].ToString());
-            //    model.Add("FStockOrgId", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["CUSTID"].ToString());
-            //    model.Add("FCustomerID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["CUSTID"].ToString());
-            //    model.Add("FSettleID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["CUSTID"].ToString());
-            //    model.Add("FReceiverID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["CUSTID"].ToString());
-            //    model.Add("FPayerID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["FSETTLECURRID"].ToString());
-            //    model.Add("FSettleCurrID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["LOCALCURRID"].ToString());
-            //    model.Add("FLocalCurrID", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["FDELIVERYMETHOD"].ToString());
-            //    model.Add("FDELIVERYMETHOD", basedata);
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", dt.Rows[0]["FHEADDELIVERYWAY"].ToString());
-            //    model.Add("FHEADDELIVERYWAY", basedata);
-
-            //    model.Add("F_PAEZ_CONTACTS", dt.Rows[0]["F_PAEZ_CONTACTS"].ToString());
-            //    model.Add("F_PAEZ_CONTACTNUMBER", dt.Rows[0]["F_PAEZ_CONTACTNUMBER"].ToString());
-            //    model.Add("F_PAEZ_SINGLESHIPMENT", dt.Rows[0]["F_PAEZ_SINGLESHIPMENT"].ToString());
-            //    model.Add("FNOTE", dt.Rows[0]["FNOTE"].ToString());
-
-            //    basedata = new JObject();
-            //    basedata.Add("FNumber", "HLTX01_SYS");
-            //    model.Add("FExchangeTypeID", basedata);
-
-            //    model.Add("FDate", DateTime.Today);
-
-            //    model.Add("FReceiveAddress", dt.Rows[0]["FADDRESS"].ToString());
-            //    model.Add("F_PAEZ_HEADLOCADDRESS", dt.Rows[0]["FADDRESS"].ToString());
-            //    model.Add("FOwnerTypeIdHead", "BD_OwnerOrg");
-
-            //    // 开始构建单据体参数：集合参数JArray
-            //    JArray entryRows = new JArray();
-            //    string entityKey = "FEntity";
-            //    model.Add(entityKey, entryRows);
-
-            //    for (int i = 0; i < dt.Rows.Count; i++)
-            //    {
-            //        JObject entryRow = new JObject();
-            //        entryRows.Add(entryRow);
-            //        entryRow.Add("FEntryID", 0);
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", dt.Rows[i]["MATERIALID"].ToString());
-            //        entryRow.Add("FMaterialId", basedata);
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", dt.Rows[i]["FUNITID"].ToString());
-            //        entryRow.Add("FSalUnitID", basedata);
-
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", dt.Rows[i]["FUNITID"].ToString());
-            //        entryRow.Add("FUnitId", basedata);
-
-            //        entryRow.Add("FPrice", dt.Rows[i]["FPRICE"].ToString());
-            //        entryRow.Add("FTaxPrice", dt.Rows[i]["FTAXPRICE"].ToString());
-
-            //        entryRow.Add("FRealQty", dt.Rows[i]["FREALQTY"].ToString());
-            //        entryRow.Add("FSALUNITQTY", dt.Rows[i]["FREALQTY"].ToString());
-            //        entryRow.Add("FSALBASEQTY", dt.Rows[i]["FREALQTY"].ToString());
-            //        entryRow.Add("FPRICEBASEQTY", dt.Rows[i]["FREALQTY"].ToString());
-            //        entryRow.Add("FEntryTaxRate", 0);
-            //        entryRow.Add("FOwnerTypeID", "BD_OwnerOrg");
-
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", dt.Rows[i]["STOCKORGID"].ToString());
-            //        entryRow.Add("FOwnerID", basedata);
-
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", dt.Rows[i]["STOCKID"].ToString());
-            //        entryRow.Add("FStockID", basedata);
-
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", "KCZT01_SYS");
-            //        entryRow.Add("FStockStatusID", basedata);
-
-            //        entryRow.Add("FEntrynote", dt.Rows[i]["FENTRYNOTE"].ToString());
-
-            //        entryRow.Add("FProductionseq", dt.Rows[i]["PRODUCTIONSEQ"].ToString());
-            //        entryRow.Add("F_PAEZ_Saledate", DateTime.Parse(dt.Rows[i]["F_PAEZ_SALEDATE"].ToString()));
-            //        basedata = new JObject();
-            //        basedata.Add("FNumber", dt.Rows[i]["FWORKSHOPID"].ToString());
-            //        entryRow.Add("FWorkshopid", basedata);
-
-            //        entryRow.Add("FSrcBillTypeId", "SAL_SALEORDER");
-            //        entryRow.Add("FSrcBillNo", dt.Rows[i]["FBILLNO"].ToString());
-            //        entryRow.Add("FSOORDERNO", dt.Rows[i]["FBILLNO"].ToString());
-
-            //        // 创建Link行集合
-            //        JArray linkRows = new JArray();
-            //        string linkEntityKey = string.Format("{0}_Link", entityKey);
-            //        entryRow.Add(linkEntityKey, linkRows);
-            //        JObject linkRow = new JObject();
-            //        linkRows.Add(linkRow);
-            //        string fldFlowIdKey = string.Format("{0}_FFlowId", linkEntityKey);
-            //        linkRow.Add(fldFlowIdKey, "");
-            //        string fldFlowLineIdKey = string.Format("{0}_FFlowLineId", linkEntityKey);
-            //        linkRow.Add(fldFlowLineIdKey, "");
-            //        string fldRuleIdKey = string.Format("{0}_FRuleId", linkEntityKey);
-            //        linkRow.Add(fldRuleIdKey, "SAL_SALEORDER-SAL_OUTSTOCK");
-            //        string fldSTableNameKey = string.Format("{0}_FSTableName", linkEntityKey);
-            //        linkRow.Add(fldSTableNameKey, "T_SAL_ORDERENTRY");
-            //        string fldSBillIdKey = string.Format("{0}_FSBillId", linkEntityKey);
-            //        linkRow.Add(fldSBillIdKey, int.Parse(dt.Rows[i]["FID"].ToString()));
-            //        string fldSIdKey = string.Format("{0}_FSId", linkEntityKey);
-            //        linkRow.Add(fldSIdKey, int.Parse(dt.Rows[i]["FENTRYID"].ToString()));
-            //        string fldBaseQtyOldKey = string.Format("{0}_FBaseUnitQtyOld", linkEntityKey);
-            //        linkRow.Add(fldBaseQtyOldKey, decimal.Parse(dt.Rows[i]["FREALQTY"].ToString()));
-            //        string fldBaseQtyKey = string.Format("{0}_FBaseUnitQty", linkEntityKey);
-            //        linkRow.Add(fldBaseQtyKey, decimal.Parse(dt.Rows[i]["FREALQTY"].ToString()));
-            //    }
-            //    strSalOutBillNO = client.Execute<string>("Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save", new object[] { "SAL_OUTSTOCK", jsonRoot.ToString() });
-
-            //    JObject jo = JObject.Parse(strSalOutBillNO);
-            //    if (!jo["Result"]["ResponseStatus"]["IsSuccess"].Value<bool>())
-            //    {
-            //        strSalOutBillNO = string.Empty;
-            //        for (int i = 0; i < ((IList)jo["Result"]["ResponseStatus"]["Errors"]).Count; i++)
-            //            strSalOutBillNO += jo["Result"]["ResponseStatus"]["Errors"][i]["Message"].Value<string>() + "\r\n";//保存不成功返错误信息
-            //    }
-            //    else
-            //    {
-            //        strSalOutBillNO = "ID:" + jo["Result"]["Id"].Value<string>() + ";Number:" + jo["Result"]["Number"].Value<string>();//保存成功返回入库单FID和单据编号FBILLNO
-
-            //        client.Execute<string>("Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Submit", new object[] { "SAL_OUTSTOCK", "{\"CreateOrgId\":\"0\",\"Numbers\":[\"" + jo["Result"]["Number"].Value<string>() + "\"]}" });//根据出库单号提交单据
-            //        client.Execute<string>("Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Audit", new object[] { "SAL_OUTSTOCK", "{\"CreateOrgId\":\"0\",\"Numbers\":[\"" + jo["Result"]["Number"].Value<string>() + "\"]}" });//根据出库单号审核单据
-
-            //        //修改主产品对应销售订单的可出数量、可出数量（销售基本）、可出数量（库存基本）的值（公式修改：可出数量=关联采购/生产数量-累计出库数量 改为 可出数量=可出数量-累计出库数量）
-            //        strSQL = @"UPDATE T_SAL_ORDERENTRY_R A
-            //                SET A.FCANOUTQTY = A.FCANOUTQTY - A.FSTOCKOUTQTY, A.FBASECANOUTQTY = A.FBASECANOUTQTY - A.FSTOCKOUTQTY, A.FSTOCKBASECANOUTQTY = A.FSTOCKBASECANOUTQTY - A.FSTOCKOUTQTY
-            //                WHERE A.FCANOUTQTY > 0 AND
-            //                EXISTS
-            //                (
-            //                    SELECT 1 FROM C##BARCODE2.PM_BarCode B
-            //                    WHERE A.FENTRYID = B.KDORDERFENTRYID AND B.BARCODE IN(" + pBarcodeList + @")
-            //                )";
-            //        try
-            //        {
-            //            OrlConn.Open();
-            //            OracleCommand cmd = OrlConn.CreateCommand();
-            //            cmd.CommandText = strSQL;
-            //            cmd.ExecuteNonQuery();
-            //        }
-            //        catch { }
-            //        finally
-            //        {
-            //            OrlConn.Close();
-            //        }
-            //        //修改辅料产品对应销售订单的出数量、可出数量（销售基本）、可出数量（库存基本）的值
-            //        if (dt2.Rows.Count > 0)
-            //        {
-            //            string strFentryids = string.Empty;
-            //            for (int i = 0; i < dt2.Rows.Count; i++)
-            //            {
-            //                if (i > 0) strFentryids += ",";
-            //                strFentryids += dt2.Rows[i]["FENTRYID"].ToString();
-            //            }
-            //            strSQL = @"UPDATE T_SAL_ORDERENTRY_R
-            //                SET FCANOUTQTY = FCANOUTQTY - FSTOCKOUTQTY,FBASECANOUTQTY = FBASECANOUTQTY - FSTOCKOUTQTY,FSTOCKBASECANOUTQTY = FSTOCKBASECANOUTQTY - FSTOCKOUTQTY
-            //                WHERE FCANOUTQTY > 0 AND FENTRYID IN(" + strFentryids + ")";
-            //            try
-            //            {
-            //                OrlConn.Open();
-            //                OracleCommand cmd = OrlConn.CreateCommand();
-            //                cmd.CommandText = strSQL;
-            //                cmd.ExecuteNonQuery();
-            //            }
-            //            catch { }
-            //            finally
-            //            {
-            //                OrlConn.Close();
-            //            }
-            //        }
-            //    }
-            //}
-            //else return "ERP对接失败";
-            //return strSalOutBillNO;//返回格式:ID:xxxx;Number:xxxx|ID:xxxx;Number:xxxx
-
-            //20190330
             DataTable dt;
             K3CloudApiClient client;
             string strSalOutBillNO = string.Empty;
 
             //根据条码列表查找主产品信息
-            if (pBarcodeList.Length == 0) return "箱号不正确";
+            if (pBarcodeList.Length == 0)
+                return "箱号不正确";
+
             _SQL = @"SELECT A.FBILLNO, CUST.FNUMBER CUSTID, NVL(A.F_PAEZ_HEADLOCADDRESS, ' ') FADDRESS, ORG.FNUMBER SALEORGID, ORG2.FNUMBER STOCKORGID
               ,CUR.FNUMBER FSETTLECURRID, NVL(CUR2.FNUMBER, ' ') LOCALCURRID, MTL.FNUMBER MATERIALID, UNT.FNUMBER FUNITID, NVL(STK.FNUMBER, 'HWL16') STOCKID
               ,NVL(SP.FBILLNO, ' ') SHARESHIPMENT, AE.FID, AE.FENTRYID, AF.FPRICE, AF.FTAXPRICE, MAX(AR.FREMAINOUTQTY) FREMAINOUTQTY, COUNT(BC.BARCODE) FREALQTY
               ,NVL(ASS.FNUMBER, ' ') FDELIVERYMETHOD, NVL(ASS2.FNUMBER, ' ') FHEADDELIVERYWAY, A.F_PAEZ_CONTACTS, A.F_PAEZ_CONTACTNUMBER, A.FNOTE
               ,AE.FNOTE FENTRYNOTE, CASE WHEN A.F_PAEZ_SINGLESHIPMENT = '0' THEN 'false' ELSE 'true' END F_PAEZ_SINGLESHIPMENT, AE.PRODUCTIONSEQ, DEP.FNUMBER FWORKSHOPID, AE.F_PAEZ_SALEDATE
-              ,CASE WHEN BT.FNUMBER IN('XSDD01_SYS','XSDD03_SYS','XSDD04_SYS','XSDD05_SYS') THEN 'XSCKD01_SYS' WHEN BT.FNUMBER = 'XSDD02_SYS' THEN 'XSCKD02_SYS' WHEN BT.FNUMBER = 'XSDD07_SYS' THEN 'XSCKD04_SYS' WHEN BT.FNUMBER = 'XSDD09_SYS' THEN 'XSCKD06_SYS' WHEN BT.FNUMBER = 'XSDD08_SYS' THEN 'XSCKD05_SYS' ELSE 'XSCKD01_SYS' END FBILLTYPE
+              ,CASE WHEN BT.FNUMBER IN('XSDD01_SYS','XSDD03_SYS','XSDD04_SYS','XSDD05_SYS') THEN 'XSCKD01_SYS' WHEN BT.FNUMBER = 'XSDD02_SYS' THEN 'XSCKD02_SYS' WHEN BT.FNUMBER = 'XSDD07_SYS' THEN 'XSCKD04_SYS' WHEN BT.FNUMBER = 'XSDD09_SYS' THEN 'XSCKD06_SYS' WHEN BT.FNUMBER = 'XSDD08_SYS' THEN 'XSCKD05_SYS' ELSE 'XSCKD01_SYS' END FBILLTYPEID
+              ,NVL(DEP2.FNUMBER,' ') FSALEDEPTID
             FROM C##BARCODE2.PM_PRODUCTPACKAGE PK
             INNER JOIN C##BARCODE2.PM_BARCODE BC ON PK.ID = BC.PACKAGEID AND BC.INSTOCKSTATUS = 1 AND BC.PACKAGESTATUS = 1 AND BC.UTSTOCKSTATUS = 0
             INNER JOIN C##BARCODE2.PM_PRODUCETASK TK ON BC.TASKID = TK.ID
@@ -1847,6 +950,7 @@ namespace PDAWS.FactorySQL
             LEFT JOIN T_BD_CURRENCY CUR2 ON AFI.FLOCALCURRID = CUR2.FCURRENCYID
             INNER JOIN T_BD_CUSTOMER CUST ON A.FCUSTID = CUST.FCUSTID
             INNER JOIN T_BD_DEPARTMENT DEP ON AE.F_PRODUCTDEPARTMENT = DEP.FDEPTID
+            LEFT JOIN T_BD_DEPARTMENT DEP2 ON A.FSALEDEPTID = DEP2.FDEPTID
             INNER JOIN T_BAS_BILLTYPE BT ON A.FBILLTYPEID = BT.FBILLTYPEID
             INNER JOIN T_BD_MATERIAL MTL ON AE.FMATERIALID = MTL.FMATERIALID
             INNER JOIN T_BD_UNIT UNT ON AE.FUNITID = UNT.FUNITID
@@ -1857,8 +961,8 @@ namespace PDAWS.FactorySQL
             LEFT JOIN T_BAS_ASSISTANTDATAENTRY ASS2 ON A.FHEADDELIVERYWAY = ASS2.FENTRYID
             LEFT JOIN C##BARCODE2.PM_SENDPLANENTRY SPE ON A.FID = SPE.ORDERINTERID
             LEFT JOIN C##BARCODE2.PM_SENDPLAN SP ON SPE.FINTERID = SP.FINTERID
-            WHERE BC.BARCODE IN(" + pBarcodeList + @") AND PK.SEALEDFLAG = 1 AND A.FCLOSESTATUS = 'A' AND AE.FMRPCLOSESTATUS = 'A' AND AR.FREMAINOUTQTY > 0
-            GROUP BY CUST.FNUMBER,A.F_PAEZ_HEADLOCADDRESS,ORG.FNUMBER,ORG2.FNUMBER,CUR.FNUMBER,CUR2.FNUMBER,MTL.FNUMBER,UNT.FNUMBER,STK.FNUMBER,SP.FBILLNO,A.FBILLNO,AE.FID,AE.FENTRYID,AF.FPRICE,AF.FTAXPRICE,ASS.FNUMBER,ASS2.FNUMBER,A.F_PAEZ_CONTACTS,A.F_PAEZ_CONTACTNUMBER,A.FNOTE,AE.FNOTE,A.F_PAEZ_SINGLESHIPMENT,AE.PRODUCTIONSEQ,DEP.FNUMBER,AE.F_PAEZ_SALEDATE,BT.FNUMBER
+            WHERE BC.BARCODE IN(" + pBarcodeList + @") AND PK.SEALEDFLAG = 1 AND AE.FMRPCLOSESTATUS = 'A' AND AR.FREMAINOUTQTY > 0
+            GROUP BY CUST.FNUMBER,A.F_PAEZ_HEADLOCADDRESS,ORG.FNUMBER,ORG2.FNUMBER,CUR.FNUMBER,CUR2.FNUMBER,MTL.FNUMBER,UNT.FNUMBER,STK.FNUMBER,SP.FBILLNO,A.FBILLNO,AE.FID,AE.FENTRYID,AF.FPRICE,AF.FTAXPRICE,ASS.FNUMBER,ASS2.FNUMBER,A.F_PAEZ_CONTACTS,A.F_PAEZ_CONTACTNUMBER,A.FNOTE,AE.FNOTE,A.F_PAEZ_SINGLESHIPMENT,AE.PRODUCTIONSEQ,DEP.FNUMBER,AE.F_PAEZ_SALEDATE,BT.FNUMBER,DEP2.FNUMBER
             ORDER BY CUST.FNUMBER";
 
             dt = ORAHelper.ExecuteTable(_SQL);
@@ -1940,6 +1044,7 @@ namespace PDAWS.FactorySQL
                 INNER JOIN T_BD_CUSTOMER G ON A.FCUSTID = G.FCUSTID
                 WHERE A.F_PAEZ_SINGLESHIPMENT = 0 AND (D.FBILLNO IS NULL OR D.FBILLNO = ' ') AND " + strRemove + " AND AR.FCANOUTQTY > 0 AND AE.FMRPCLOSESTATUS = 'A' AND G.FNUMBER = '" + dt.Rows[0]["CUSTID"].ToString() + "' AND A.F_PAEZ_HEADLOCADDRESS = '" + dt.Rows[0]["FADDRESS"].ToString() + "' AND A.FBILLNO IN(" + strOrderBillNos + ")";
             }
+
             dtFL = ORAHelper.ExecuteTable(_SQL);
             if (dtFL != null && dtFL.Rows.Count > 0)//把辅料明细信息添加到dt中
             {
@@ -1981,7 +1086,8 @@ namespace PDAWS.FactorySQL
                     drTmp["FWORKSHOPID"] = dt.Rows[0]["FWORKSHOPID"].ToString();
                     drTmp["F_PAEZ_SALEDATE"] = dt.Rows[0]["F_PAEZ_SALEDATE"].ToString();
 
-                    drTmp["BILLTYPEID"] = dt.Rows[0]["BILLTYPEID"].ToString();
+                    drTmp["FBILLTYPEID"] = dt.Rows[0]["FBILLTYPEID"].ToString();
+                    drTmp["FSALEDEPTID"] = dt.Rows[0]["FSALEDEPTID"].ToString();
 
                     for (int j = 0; j < dt.Rows.Count; j++)
                     {
@@ -2010,7 +1116,7 @@ namespace PDAWS.FactorySQL
                 model.Add("FID", 0);
 
                 JObject basedata = new JObject();
-                basedata.Add("FNumber", dt.Rows[0]["BILLTYPEID"].ToString());
+                basedata.Add("FNumber", dt.Rows[0]["FBILLTYPEID"].ToString());
                 model.Add("FBillTypeID", basedata);
 
                 basedata = new JObject();
@@ -2020,6 +1126,10 @@ namespace PDAWS.FactorySQL
                 basedata = new JObject();
                 basedata.Add("FNumber", dt.Rows[0]["SALEORGID"].ToString());
                 model.Add("FSettleOrgID", basedata);
+
+                basedata = new JObject();
+                basedata.Add("FNumber", dt.Rows[0]["FSALEDEPTID"].ToString());
+                model.Add("FSaleDeptId", basedata);
 
                 basedata = new JObject();
                 basedata.Add("FNumber", dt.Rows[0]["STOCKORGID"].ToString());
@@ -2197,291 +1307,6 @@ namespace PDAWS.FactorySQL
         }
         #endregion
 
-        #region 寄售订单扫描生成调拨单
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="strBarcodes"></param>
-        /// <returns></returns>
-        public static string Trans(string strBarcodes)
-        {
-            DataTable dtDepartment = ORAHelper.ExecuteTable("SELECT FNUMBER FROM DM_PICKMTLDEPARTMENT WHERE ISDELETE = '0' ORDER BY FNUMBER");
-            if (dtDepartment == null || dtDepartment.Rows.Count == 0) return "";
-            string strBillnos = string.Empty;
-            //根据具体部门汇总分组情况指定锯齿数组值
-            string[][] DepNo = new string[dtDepartment.Rows.Count][];
-            for (int i = 0; i < dtDepartment.Rows.Count; i++)
-            {
-                DepNo[i] = new string[] { dtDepartment.Rows[i]["FNUMBER"].ToString() };
-            }
-            List<string> list = new List<string>();
-            string tmp = string.Empty;
-            for (int i = 0; i < DepNo.Length; i++)
-            {
-                tmp = string.Empty;
-                for (int j = 0; j < DepNo[i].Length; j++)
-                {
-                    if (j > 0) tmp += ",";
-                    tmp += "'" + DepNo[i][j] + "'";
-                }
-                list.Add(tmp);
-            }
-
-            DataTable dt;
-            List<string> lstOutStock;
-            for (int i = 0; i < list.Count; i++)
-            {
-                dt = new DataTable();
-                lstOutStock = new List<string>();
-                //获取调拨单数据
-                dt = GetTransferDirectDT(strBarcodes, list[i]);
-                if (dt.Rows.Count == 0) continue;
-
-                //统计调出仓库
-                for (int j = 0; j < dt.Rows.Count; j++)
-                {
-                    if (j == 0)
-                        lstOutStock.Add(dt.Rows[0]["调出仓库"].ToString());
-                    else
-                        if (!lstOutStock.Contains(dt.Rows[j]["调出仓库"].ToString()))
-                        lstOutStock.Add(dt.Rows[j]["调出仓库"].ToString());
-                }
-
-                //根据不同调出仓分批生产单据
-                DataTable dt2;
-                for (int j = 0; j < lstOutStock.Count; j++)
-                {
-                    dt2 = new DataTable();
-                    dt2 = dt.Clone();
-                    for (int m = 0; m < dt.Rows.Count; m++)
-                    {
-                        if (lstOutStock[j] == dt.Rows[m]["调出仓库"].ToString())
-                            dt2.ImportRow(dt.Rows[m]);
-                    }
-                    if (dt2.Rows.Count > 0)
-                    {
-                        //生成单据
-                        tmp = TransferDirect(dt2);
-                        if (tmp != "")
-                            strBillnos += "[" + tmp + "] ";
-                    }
-                }
-
-                //更新【已经生成调拨单】状态
-                UpdateDirectFields(strBarcodes, list[i]);
-            }
-            return strBillnos;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="strBarcodes"></param>
-        /// <param name="pDepartments"></param>
-        /// <returns></returns>
-        private static DataTable GetTransferDirectDT(string strBarcodes, string pDepartments)
-        {
-            _SQL = @"SELECT E.FBILLNO 订单编号, MTL.FNUMBER 物料编码, UNT.FNUMBER 单位,F.FNUMBER BOM版本,CUT.FNUMBER 客户
-                ,ORG.FNUMBER 库存组织, NVL(CUT2.FNUMBER, ' ') 货主,ORG3.FNUMBER 结算组织,ORG4.FNUMBER 销售组织, EE.FOWNERTYPEID 货主类型
-                ,E.FBUSINESSTYPE 业务类型,DPT.FNUMBER 销售部门, DPT2.FNUMBER 领料部门, STK.FNUMBER 调入仓库, NVL(STK2.FNUMBER,' ') 调出仓库
-                ,SUM(AE.FMUSTQTY) 调拨数量
-            FROM C##BARCODE2.PM_BARCODE BAR
-            INNER JOIN T_SAL_ORDERENTRY EE ON BAR.KDORDERFENTRYID = EE.FENTRYID
-            INNER JOIN T_SAL_ORDER E ON EE.FID = E.FID AND E.FBILLTYPEID = '1e17ce9c878a483da7fe38e5a4e992a0'--寄售销售订单
-            INNER JOIN T_SAL_ORDERENTRY_F EF ON EE.FENTRYID = EF.FENTRYID
-            INNER JOIN T_BD_MATERIAL MTL ON EE.FMATERIALID = MTL.FMATERIALID --AND MTL.FUSEORGID = 100508
-            INNER JOIN T_BD_UNIT UNT ON EE.FSTOCKUNITID = UNT.FUNITID
-            INNER JOIN T_BD_CUSTOMER CUT ON E.FCUSTID = CUT.FCUSTID
-            LEFT JOIN T_BD_CUSTOMER CUT2 ON EE.FOWNERID = CUT2.FCUSTID
-            INNER JOIN T_ENG_BOM F ON EE.FBOMID = F.FID
-            INNER JOIN T_BD_DEPARTMENT DPT ON E.FSALEDEPTID = DPT.FDEPTID
-            INNER JOIN T_ORG_ORGANIZATIONS ORG ON EE.FSTOCKORGID = ORG.FORGID
-            --LEFT JOIN T_ORG_ORGANIZATIONS ORG2 ON EE.FOWNERID = ORG2.FORGID
-            INNER JOIN T_ORG_ORGANIZATIONS ORG3 ON EF.FSETTLEORGID = ORG3.FORGID
-            INNER JOIN T_ORG_ORGANIZATIONS ORG4 ON E.FSALEORGID = ORG4.FORGID
-            INNER JOIN T_PRD_PPBOMENTRY AE ON BAR.KDTASKFENTRYID = AE.FMOENTRYID
-            INNER JOIN T_PRD_PPBOM A ON A.FID = AE.FID
-            INNER JOIN T_PRD_MOENTRY BE ON AE.FMOENTRYID = BE.FENTRYID AND TO_CHAR(BE.FPLANSTARTDATE,'YYYY-MM-DD') = TO_CHAR(AE.FNEEDDATE,'YYYY-MM-DD')
-            INNER JOIN T_PRD_MO B ON BE.FID = B.FID AND B.FDOCUMENTSTATUS = 'C'
-            INNER JOIN T_PRD_MOENTRY_A BA ON AE.FMOENTRYID = BA.FENTRYID AND BA.FSTATUS = 4
-            INNER JOIN T_BD_DEPARTMENT DPT2 ON BE.FWORKSHOPID = DPT2.FDEPTID
-            INNER JOIN T_AUTO_MSTOCKSETTING C ON AE.FMATERIALID = C.FMATERIALID AND DPT2.FDEPTID = C.FDEPTID
-            INNER JOIN T_BD_STOCK STK ON DPT2.FINSTOCKID = STK.FSTOCKID
-            LEFT JOIN T_BD_STOCK STK2 ON C.FSTOCKID = STK2.FSTOCKID
-            WHERE A.FDOCUMENTSTATUS = 'C' AND BAR.BARCODE IN(" + strBarcodes + ") AND STK.FNUMBER <> STK2.FNUMBER AND AE.FPAEZHAVEDIRECT = 0 AND DPT2.FNUMBER IN(" + pDepartments + @")
-            GROUP BY E.FBILLNO,MTL.FNUMBER,UNT.FNUMBER,F.FNUMBER,CUT.FNUMBER,ORG.FNUMBER, ORG2.FNUMBER,ORG3.FNUMBER,ORG4.FNUMBER,EE.FOWNERTYPEID,E.FBUSINESSTYPE,DPT.FNUMBER,DPT2.FNUMBER,STK.FNUMBER,STK2.FNUMBER";
-
-            return ORAHelper.ExecuteTable(_SQL);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="pDT"></param>
-        /// <returns></returns>
-        private static string TransferDirect(DataTable pDT)
-        {
-            if (pDT.Rows.Count == 0) return "";
-
-            string strPMBillNO = string.Empty;
-            K3CloudApiClient client = new K3CloudApiClient(_URL);
-
-            var bLogin = client.Login(_ZTID, _UserName, _PWD, 2052);
-            if (bLogin)
-            {
-                JObject jsonRoot = new JObject();
-                jsonRoot.Add("Creator", "MANUAL");
-                jsonRoot.Add("NeedUpDateFields", new JArray(""));
-
-                JObject model = new JObject();
-                jsonRoot.Add("Model", model);
-                model.Add("FID", 0);
-
-                JObject basedata = new JObject();
-                basedata.Add("FNumber", "ZJDB02_SYS");
-                model.Add("FBillTypeID", basedata);
-
-                model.Add("FTransferDirect", "GENERAL");
-                model.Add("FBIZTYPE", "CONSIGNMENT");//
-                model.Add("FTransferBizType", "InnerOrgTransfer");
-
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["结算组织"].ToString());
-                model.Add("FSettleOrgId", basedata);
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["销售组织"].ToString());
-                model.Add("FSaleOrgId", basedata);
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["库存组织"].ToString());
-                model.Add("FStockOutOrgId", basedata);
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["库存组织"].ToString());
-                model.Add("FStockOrgId", basedata);
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["销售部门"].ToString());
-                model.Add("FSALEDEPTID", basedata);
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["领料部门"].ToString());
-                model.Add("F_PickDepart", basedata);
-                //
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["货主"].ToString());
-                model.Add("FOWNERINID", basedata);
-                model.Add("FOWNERTYPEINID", pDT.Rows[0]["货主类型"].ToString());
-                basedata = new JObject();
-                basedata.Add("FNumber", pDT.Rows[0]["货主"].ToString());
-                model.Add("FOwnerOutId", basedata);
-                model.Add("FOwnerTypeOutId", pDT.Rows[0]["货主类型"].ToString());
-
-                basedata = new JObject();
-                basedata.Add("FNumber", "PRE001");
-                model.Add("FSETTLECURRID", basedata);
-                basedata = new JObject();
-                basedata.Add("FNumber", "PRE001");
-                model.Add("FBaseCurrId", basedata);
-
-                model.Add("FDate", DateTime.Now.ToString());
-
-                JArray entryRows = new JArray();
-                string entityKey = "FBillEntry";
-                model.Add(entityKey, entryRows);
-                for (int i = 0; i < pDT.Rows.Count; i++)
-                {
-                    JObject entryRow = new JObject();
-                    entryRows.Add(entryRow);
-                    entryRow.Add("FEntryID", 0);
-
-                    entryRow.Add("FORDERNO", pDT.Rows[i]["订单编号"].ToString());//
-
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["物料编码"].ToString());
-                    entryRow.Add("FMaterialId", basedata);
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["物料编码"].ToString());
-                    entryRow.Add("FDestMaterialId", basedata);
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["单位"].ToString());
-                    entryRow.Add("FUnitID", basedata);
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["单位"].ToString());
-                    entryRow.Add("FBaseUnitId", basedata);
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["单位"].ToString());
-                    entryRow.Add("FPriceUnitID", basedata);
-
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["调出仓库"].ToString());
-                    entryRow.Add("FSrcStockId", basedata);
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["调入仓库"].ToString());
-                    entryRow.Add("FDestStockId", basedata);
-
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["货主"].ToString());
-                    entryRow.Add("FOwnerId", basedata);
-                    entryRow.Add("FOwnerTypeId", "BD_OwnerOrg");
-
-                    entryRow.Add("FQty", pDT.Rows[i]["调拨数量"].ToString());
-                    entryRow.Add("FPAEZAskQty", 0);
-                    entryRow.Add("FBaseQty", pDT.Rows[i]["调拨数量"].ToString());
-                    entryRow.Add("FActQty", pDT.Rows[i]["调拨数量"].ToString());
-                    entryRow.Add("FPriceQty", pDT.Rows[i]["调拨数量"].ToString());
-                    entryRow.Add("FPriceBaseQty", pDT.Rows[i]["调拨数量"].ToString());
-
-                    basedata = new JObject();
-                    basedata.Add("FNumber", pDT.Rows[i]["客户"].ToString());
-                    entryRow.Add("FKeeperId", basedata);
-                    entryRow.Add("FKeeperTypeId", "BD_Customer");
-                }
-                // 调用Web API接口服务，保存领料单
-                strPMBillNO = client.Save("STK_TransferDirect", jsonRoot.ToString());
-                JObject jo = JObject.Parse(strPMBillNO);
-
-                if (!jo["Result"]["ResponseStatus"]["IsSuccess"].Value<bool>())
-                {
-                    strPMBillNO = "生成失败:";
-                    for (int i = 0; i < ((IList)jo["Result"]["ResponseStatus"]["Errors"]).Count; i++)
-                        strPMBillNO += jo["Result"]["ResponseStatus"]["Errors"][i]["Message"].Value<string>() + "\r\n";//保存不成功返错误信息
-                }
-                else
-                {
-                    strPMBillNO = jo["Result"]["Number"].Value<string>();
-                }
-            }
-
-            return strPMBillNO;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="strBarcodes"></param>
-        /// <param name="pDepartments"></param>
-        private static void UpdateDirectFields(string strBarcodes, string pDepartments)
-        {
-            _SQL = @"UPDATE T_PRD_PPBOMENTRY
-            SET FPAEZHAVEDIRECT = 1
-            WHERE FPAEZHAVEDIRECT = 0 AND FENTRYID IN
-            (SELECT DISTINCT AE.FENTRYID
-            FROM C##BARCODE2.PM_BARCODE BAR
-            INNER JOIN T_SAL_ORDERENTRY EE ON BAR.KDORDERFENTRYID = EE.FENTRYID
-            INNER JOIN T_SAL_ORDER E ON EE.FID = E.FID AND E.FBILLTYPEID = '1e17ce9c878a483da7fe38e5a4e992a0'
-            INNER JOIN T_PRD_PPBOMENTRY AE ON BAR.KDTASKFENTRYID = AE.FMOENTRYID
-            INNER JOIN T_PRD_PPBOM A ON A.FID = AE.FID
-            INNER JOIN T_PRD_MOENTRY BE ON AE.FMOENTRYID = BE.FENTRYID AND TO_CHAR(BE.FPLANSTARTDATE,'YYYY-MM-DD') = TO_CHAR(AE.FNEEDDATE,'YYYY-MM-DD')
-            INNER JOIN T_PRD_MO B ON BE.FID = B.FID AND B.FDOCUMENTSTATUS = 'C'
-            INNER JOIN T_PRD_MOENTRY_A BA ON AE.FMOENTRYID = BA.FENTRYID AND BA.FSTATUS = 4
-            INNER JOIN T_BD_DEPARTMENT DPT2 ON BE.FWORKSHOPID = DPT2.FDEPTID
-            INNER JOIN T_AUTO_MSTOCKSETTING C ON AE.FMATERIALID = C.FMATERIALID AND DPT2.FDEPTID = C.FDEPTID
-            INNER JOIN T_BD_STOCK STK ON DPT2.FINSTOCKID = STK.FSTOCKID
-            LEFT JOIN T_BD_STOCK STK2 ON C.FSTOCKID = STK2.FSTOCKID
-            WHERE A.FDOCUMENTSTATUS = 'C' AND BAR.BARCODE IN(" + strBarcodes + ") AND STK.FNUMBER <> STK2.FNUMBER AND AE.FPAEZHAVEDIRECT = 0 AND DPT2.FNUMBER IN(" + pDepartments + @"))";
-
-            ORAHelper.ExecuteNonQuery(_SQL);
-        }
-        #endregion
-
         #region 装箱
         /// <summary>
         /// 装箱
@@ -2495,152 +1320,99 @@ namespace PDAWS.FactorySQL
         /// <returns></returns>
         public static string Package(int pPackageId, int pCustId, string pBarcodes, double pVolume, int pType, int pMaxBoxNumber)
         {
-            //string strReturn = string.Empty;
-            //OracleConnection OrlConn = new OracleConnection(ConnectionString);
-            //string strSQL = string.Empty;
-            //if (pType == 0)//解封
-            //    strSQL = @"BEGIN
-            //    UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
-            //    SET SEALEDFLAG = 0
-            //    WHERE  ID = " + pPackageId.ToString() + @";
-            //    COMMIT;
-            //    --DBMS_OUTPUT.PUT_LINE('解封成功');
-            //    EXCEPTION
-            //    WHEN OTHERS THEN 
-            //        ROLLBACK; -- 出现异常则回滚事务
-            //    --DBMS_OUTPUT.PUT_LINE('解封失败');
-            //    DBMS_OUTPUT.PUT_LINE(SQLERRM);
-            //    END;";
-            //else if (pType == 1)//装箱
-            //    strSQL = @"BEGIN
-            //    UPDATE C##BARCODE2.PM_BarCode
-            //    SET PACKAGESTATUS = 1, PACKAGEID = " + pPackageId.ToString() + @"
-            //    WHERE BARCODE IN(" + pBarcodes + @");
-            //    UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
-            //    SET SEALEDFLAG = 0, KDCUSTID = " + pCustId.ToString() + ", BOXNUMBER = " + pMaxBoxNumber.ToString() + @"
-            //    WHERE  ID = " + pPackageId.ToString() + @";
-            //    UPDATE C##BARCODE2.PM_BarCode A
-            //    SET A.PACKAGESTATUS = 0, A.PACKAGEID = NULL
-            //    WHERE A.BARCODE NOT IN(" + pBarcodes + @")
-            //    AND EXISTS
-            //    (
-            //        SELECT 1 FROM C##BARCODE2.PM_PRODUCTPACKAGE B
-            //        WHERE A.PACKAGEID = B.ID AND B.ID = " + pPackageId.ToString() + @"
-            //    );
-            //    COMMIT;
-            //    --DBMS_OUTPUT.PUT_LINE('装箱成功');
-            //    EXCEPTION
-            //    WHEN OTHERS THEN 
-            //        ROLLBACK;
-            //    --DBMS_OUTPUT.PUT_LINE('装箱失败');
-            //    DBMS_OUTPUT.PUT_LINE(SQLERRM);
-            //    END;";
-            //else if (pType == 2)//封箱
-            //    strSQL = @"BEGIN
-            //    UPDATE C##BARCODE2.PM_BarCode
-            //    SET PACKAGESTATUS = 1, PACKAGEID = " + pPackageId.ToString() + @"
-            //    WHERE BARCODE IN(" + pBarcodes + @");
-            //    UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
-            //    SET SEALEDFLAG = 1, VOLUME = " + pVolume.ToString() + ", KDCUSTID = " + pCustId.ToString() + @"
-            //    WHERE ID = " + pPackageId.ToString() + @";
-            //    UPDATE C##BARCODE2.PM_BarCode A
-            //    SET A.PACKAGESTATUS = 0, A.PACKAGEID = NULL
-            //    WHERE A.BARCODE NOT IN(" + pBarcodes + @")
-            //    AND EXISTS
-            //    (
-            //        SELECT 1 FROM C##BARCODE2.PM_PRODUCTPACKAGE B
-            //        WHERE A.PACKAGEID = B.ID AND B.ID = " + pPackageId.ToString() + @"
-            //    );
-            //    COMMIT;
-            //    --DBMS_OUTPUT.PUT_LINE('装箱成功');
-            //    EXCEPTION
-            //    WHEN OTHERS THEN
-            //        ROLLBACK;
-            //    --DBMS_OUTPUT.PUT_LINE('装箱失败');
-            //    DBMS_OUTPUT.PUT_LINE(SQLERRM);
-            //    END; ";
-            //try
-            //{
-            //    OrlConn.Open();
-            //    OracleCommand cmd = OrlConn.CreateCommand();
-            //    cmd.CommandText = strSQL;
-            //    cmd.ExecuteNonQuery();
-            //}
-            //catch (Exception ex)
-            //{
-            //    strReturn += ex.Message;
-            //}
-            //finally
-            //{
-            //    OrlConn.Close();
-            //}
+            OracleConnection OrlConn = new OracleConnection(_ConnectionString);
 
-            //return strReturn;
+            switch (pType)
+            {
+                case 0://解封
+                    _SQL = @"BEGIN
+                    UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
+                    SET SEALEDFLAG = 0
+                    WHERE  ID = " + pPackageId.ToString() + @";
+                    COMMIT;
+                    --DBMS_OUTPUT.PUT_LINE('解封成功');
+                    EXCEPTION
+                    WHEN OTHERS THEN 
+                        ROLLBACK; -- 出现异常则回滚事务
+                    --DBMS_OUTPUT.PUT_LINE('解封失败');
+                    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                    END;";
+                    break;
+                case 1://装箱
+                    _SQL = @"BEGIN
+                    UPDATE C##BARCODE2.PM_BarCode
+                    SET PACKAGESTATUS = 1, PACKAGEID = " + pPackageId.ToString() + @"
+                    WHERE BARCODE IN(" + pBarcodes + @");
+                    UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
+                    SET SEALEDFLAG = 0, KDCUSTID = " + pCustId.ToString() + ", BOXNUMBER = " + pMaxBoxNumber.ToString() + @"
+                    WHERE  ID = " + pPackageId.ToString() + @";
+                    UPDATE C##BARCODE2.PM_BarCode A
+                    SET A.PACKAGESTATUS = 0, A.PACKAGEID = NULL
+                    WHERE A.BARCODE NOT IN(" + pBarcodes + @")
+                    AND EXISTS
+                    (
+                        SELECT 1 FROM C##BARCODE2.PM_PRODUCTPACKAGE B
+                        WHERE A.PACKAGEID = B.ID AND B.ID = " + pPackageId.ToString() + @"
+                    );
+                    COMMIT;
+                    --DBMS_OUTPUT.PUT_LINE('装箱成功');
+                    EXCEPTION
+                    WHEN OTHERS THEN 
+                        ROLLBACK;
+                    --DBMS_OUTPUT.PUT_LINE('装箱失败');
+                    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                    END;";
+                    break;
+                case 2://封箱
+                    _SQL = @"BEGIN
+                    UPDATE C##BARCODE2.PM_BarCode
+                    SET PACKAGESTATUS = 1, PACKAGEID = " + pPackageId.ToString() + @"
+                    WHERE BARCODE IN(" + pBarcodes + @");
+                    UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
+                    SET SEALEDFLAG = 1, VOLUME = " + pVolume.ToString() + ", KDCUSTID = " + pCustId.ToString() + @"
+                    WHERE ID = " + pPackageId.ToString() + @";
+                    UPDATE C##BARCODE2.PM_BarCode A
+                    SET A.PACKAGESTATUS = 0, A.PACKAGEID = NULL
+                    WHERE A.BARCODE NOT IN(" + pBarcodes + @")
+                    AND EXISTS
+                    (
+                        SELECT 1 FROM C##BARCODE2.PM_PRODUCTPACKAGE B
+                        WHERE A.PACKAGEID = B.ID AND B.ID = " + pPackageId.ToString() + @"
+                    );
+                    COMMIT;
+                    --DBMS_OUTPUT.PUT_LINE('装箱成功');
+                    EXCEPTION
+                    WHEN OTHERS THEN
+                        ROLLBACK;
+                    --DBMS_OUTPUT.PUT_LINE('装箱失败');
+                    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+                    END;";
+                    break;
+                default:
+                    _SQL = string.Empty;
+                    break;
+            }
 
-            //20190330
-            if (pType == 0)//解封
-                _SQL = @"BEGIN
-                UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
-                SET SEALEDFLAG = 0
-                WHERE  ID = " + pPackageId.ToString() + @";
-                COMMIT;
-                --DBMS_OUTPUT.PUT_LINE('解封成功');
-                EXCEPTION
-                WHEN OTHERS THEN 
-                    ROLLBACK; -- 出现异常则回滚事务
-                --DBMS_OUTPUT.PUT_LINE('解封失败');
-                DBMS_OUTPUT.PUT_LINE(SQLERRM);
-                END;";
-            else if (pType == 1)//装箱
-                _SQL = @"BEGIN
-                UPDATE C##BARCODE2.PM_BarCode
-                SET PACKAGESTATUS = 1, PACKAGEID = " + pPackageId.ToString() + @"
-                WHERE BARCODE IN(" + pBarcodes + @");
-                UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
-                SET SEALEDFLAG = 0, KDCUSTID = " + pCustId.ToString() + ", BOXNUMBER = " + pMaxBoxNumber.ToString() + @"
-                WHERE  ID = " + pPackageId.ToString() + @";
-                UPDATE C##BARCODE2.PM_BarCode A
-                SET A.PACKAGESTATUS = 0, A.PACKAGEID = NULL
-                WHERE A.BARCODE NOT IN(" + pBarcodes + @")
-                AND EXISTS
-                (
-                    SELECT 1 FROM C##BARCODE2.PM_PRODUCTPACKAGE B
-                    WHERE A.PACKAGEID = B.ID AND B.ID = " + pPackageId.ToString() + @"
-                );
-                COMMIT;
-                --DBMS_OUTPUT.PUT_LINE('装箱成功');
-                EXCEPTION
-                WHEN OTHERS THEN 
-                    ROLLBACK;
-                --DBMS_OUTPUT.PUT_LINE('装箱失败');
-                DBMS_OUTPUT.PUT_LINE(SQLERRM);
-                END;";
-            else if (pType == 2)//封箱
-                _SQL = @"BEGIN
-                UPDATE C##BARCODE2.PM_BarCode
-                SET PACKAGESTATUS = 1, PACKAGEID = " + pPackageId.ToString() + @"
-                WHERE BARCODE IN(" + pBarcodes + @");
-                UPDATE C##BARCODE2.PM_PRODUCTPACKAGE
-                SET SEALEDFLAG = 1, VOLUME = " + pVolume.ToString() + ", KDCUSTID = " + pCustId.ToString() + @"
-                WHERE ID = " + pPackageId.ToString() + @";
-                UPDATE C##BARCODE2.PM_BarCode A
-                SET A.PACKAGESTATUS = 0, A.PACKAGEID = NULL
-                WHERE A.BARCODE NOT IN(" + pBarcodes + @")
-                AND EXISTS
-                (
-                    SELECT 1 FROM C##BARCODE2.PM_PRODUCTPACKAGE B
-                    WHERE A.PACKAGEID = B.ID AND B.ID = " + pPackageId.ToString() + @"
-                );
-                COMMIT;
-                --DBMS_OUTPUT.PUT_LINE('装箱成功');
-                EXCEPTION
-                WHEN OTHERS THEN
-                    ROLLBACK;
-                --DBMS_OUTPUT.PUT_LINE('装箱失败');
-                DBMS_OUTPUT.PUT_LINE(SQLERRM);
-                END; ";
+            if (!_SQL.Equals(string.Empty))
+            {
+                try
+                {
+                    OrlConn.Open();
+                    OracleCommand cmd = OrlConn.CreateCommand();
+                    cmd.CommandText = _SQL;
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
+                finally
+                {
+                    OrlConn.Close();
+                }
+            }
 
-            return ORAHelper.ExecuteScalar(_SQL).ToString();
+            return string.Empty;
         }
         #endregion
 
@@ -2663,25 +1435,9 @@ namespace PDAWS.FactorySQL
         /// <param name="pMATERIALID">物料内码</param>
         public static void SaveLog(string pFNumbers, string pOperator, string pType, int pFLAG, string pDescription, string pIP, string pBARCODES, string pERMESSAGE, string pMOBILLS, string pMOENTRYID, string pORDERBILLS, string pORDERENTRYID, string pMATERIALID)
         {
-            //string strSQL = @"INSERT INTO DM_EXCEPTIONRECORD(FNUMBER,CREATOR,FTYPE,FFLAGE,DESCRIPTION,FIP,BARCODES,ERMESSAGE,MOBILLS,MOENTRYID,ORDERBILLS,ORDERENTRYID,MATERIALID)
-            //                VALUES('" + pFNumbers + "','" + pOperator + "','" + pType + "'," + pFLAG.ToString() + ",'" + pDescription + "','" + pIP + "','" + pBARCODES + "','" + pERMESSAGE + "','" + pMOBILLS + "','" + pMOENTRYID + "','" + pORDERBILLS + "','" + pORDERENTRYID + "','" + pMATERIALID + "')";
-            //OracleConnection OrlConn = new OracleConnection(ConnectionString);
-            //try
-            //{
-            //    OrlConn.Open();
-            //    OracleCommand cmd = OrlConn.CreateCommand();
-            //    cmd.CommandText = strSQL;
-            //    cmd.ExecuteNonQuery();
-            //}
-            //catch { }
-            //finally
-            //{
-            //    OrlConn.Close();
-            //}
-
-            //20190330
             _SQL = @"INSERT INTO DM_EXCEPTIONRECORD(FNUMBER,CREATOR,FTYPE,FFLAGE,DESCRIPTION,FIP,BARCODES,ERMESSAGE,MOBILLS,MOENTRYID,ORDERBILLS,ORDERENTRYID,MATERIALID)
             VALUES('" + pFNumbers + "','" + pOperator + "','" + pType + "'," + pFLAG.ToString() + ",'" + pDescription + "','" + pIP + "','" + pBARCODES + "','" + pERMESSAGE + "','" + pMOBILLS + "','" + pMOENTRYID + "','" + pORDERBILLS + "','" + pORDERENTRYID + "','" + pMATERIALID + "')";
+
             ORAHelper.ExecuteNonQuery(_SQL);
         }
         #endregion
